@@ -13,6 +13,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
+FROM deps AS migrator
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY . .
+RUN npm run db:generate
+
 FROM node:lts-alpine AS runner
 WORKDIR /app
 
@@ -27,6 +33,7 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
 USER nextjs
 

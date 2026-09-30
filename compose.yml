@@ -1,15 +1,53 @@
 services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: arcadiaone-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    profiles:
+      - tools
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run db:migrate
+
   arcadiaone:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: arcadiaone
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
       HOSTNAME: 0.0.0.0
       PORT: "3000"
+      DATABASE_URL: ${DATABASE_URL}
     expose:
       - "3000"
     labels:
@@ -18,3 +56,6 @@ services:
       traefik.http.routers.arcadiaone.entrypoints: "websecure"
       traefik.http.routers.arcadiaone.tls.certresolver: "letsencrypt"
       traefik.http.services.arcadiaone.loadbalancer.server.port: "3000"
+
+volumes:
+  postgres-data:

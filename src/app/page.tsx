@@ -1,24 +1,52 @@
-export default function Home() {
+import { PageHeader } from "@/components/page-header";
+import { ButtonLink, SecondaryLink } from "@/components/ui";
+import { getDashboardStats } from "@/modules/people/data";
+
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
+
   return (
-    <main className="min-h-screen px-6 py-10 sm:px-10">
-      <section className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center">
-        <div className="w-full border-y border-[color:var(--border)] py-12 sm:py-16">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--accent)]">
-            Application online
+    <>
+      <PageHeader
+        actions={<ButtonLink href="/people/new">Add employee</ButtonLink>}
+        description="A focused operational view of the ArcadiaOne foundation."
+        title="Dashboard"
+      />
+      <section className="grid gap-4 md:grid-cols-3">
+        <Metric label="Active employees" value={stats.activeEmployees} />
+        <Metric label="Active departments" value={stats.departments} />
+        <Metric label="Active positions" value={stats.positions} />
+      </section>
+      <section className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
+          <h2 className="text-base font-semibold">People module</h2>
+          <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+            Manage employee records, reporting relationships, departments,
+            positions, and contact information.
           </p>
-          <h1 className="text-4xl font-semibold tracking-normal text-[color:var(--foreground)] sm:text-6xl">
-            ArcadiaOne
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-[color:var(--muted)] sm:text-xl">
-            Employee and project management platform for Arcadia Command
-            Solutions.
-          </p>
-          <div className="mt-8 inline-flex items-center gap-3 rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] px-4 py-3 text-sm font-medium text-[color:var(--foreground)]">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            Deployment validation page is running.
+          <div className="mt-4">
+            <SecondaryLink href="/people">Open people directory</SecondaryLink>
           </div>
         </div>
+        <div className="rounded-sm border border-dashed border-[color:var(--border)] bg-[color:var(--panel)] p-5">
+          <h2 className="text-base font-semibold">Upcoming modules</h2>
+          <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
+            Certifications, training, projects, scheduling, documents, and
+            reporting will be added in later focused passes.
+          </p>
+        </div>
       </section>
-    </main>
+    </>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
+      <p className="text-sm font-medium text-[color:var(--muted)]">{label}</p>
+      <p className="mt-2 text-3xl font-semibold">{value}</p>
+    </div>
   );
 }

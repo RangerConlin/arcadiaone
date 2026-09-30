@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SystemHealth {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+}
+
+model Organization {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  departments Department[]
+  positions   Position[]
+  employees   Employee[]
+}
+
+model Department {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employees      Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+model Position {
+  id             String       @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employees      Employee[]
+
+  @@unique([organizationId, title])
+  @@index([organizationId, active])
+}
+
+model Employee {
+  id               String           @id @default(uuid())
+  organizationId   String
+  employeeNumber   String?
+  firstName        String
+  preferredName    String?
+  middleName       String?
+  lastName         String
+  suffix           String?
+  workEmail        String?
+  personalEmail    String?
+  workPhone        String?
+  mobilePhone      String?
+  departmentId     String?
+  positionId       String?
+  supervisorId     String?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  hireDate         DateTime?
+  separationDate   DateTime?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  department       Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position         Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  supervisor       Employee?        @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  directReports    Employee[]       @relation("EmployeeSupervisor")
+
+  @@unique([organizationId, employeeNumber])
+  @@index([organizationId, employmentStatus])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([supervisorId])
+  @@index([lastName, firstName])
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+  LEAVE
+  TERMINATED
+}
