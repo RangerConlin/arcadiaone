@@ -183,7 +183,7 @@ docker compose up -d --build
 
 Run migrations separately whenever new migration files are added.
 
-PostgreSQL data persists in the named Docker volume `arcadiaone_postgres-data`. PostgreSQL port `5432` is not published to the host; it is reachable only by services on the internal Docker Compose network.
+PostgreSQL data persists in the named Docker volume `arcadiaone_postgres-data`, mounted at `/var/lib/postgresql` for PostgreSQL 18's versioned data directory layout. PostgreSQL port `5432` is not published to the host; it is reachable only by services on the internal Docker Compose network.
 
 After deployment, check:
 
