@@ -1,0 +1,20 @@
+services:
+  arcadiaone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arcadiaone
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    expose:
+      - "3000"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.arcadiaone.rule: "Host(`one.arcadiacommandsolutions.com`)"
+      traefik.http.routers.arcadiaone.entrypoints: "websecure"
+      traefik.http.routers.arcadiaone.tls.certresolver: "letsencrypt"
+      traefik.http.services.arcadiaone.loadbalancer.server.port: "3000"
