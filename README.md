@@ -378,3 +378,30 @@ The webhook endpoint requires an HMAC-SHA256 signature in `x-arcadia-signature`,
 All reads and mutations derive organization identity from the authenticated session and re-check linked IDs server-side. Financial authorization is centralized: administrators have complete access, managers see drafts they created and invoices for projects they manage, and employees have no general financial access. Signature sending is a distinct permission from document viewing. Document downloads continue through protected document authorization. Issued invoices, payments, exact unsigned versions, and signed results use restrictive foreign-key deletion behavior.
 
 The data model is ready for a future portal to grant an external identity access to selected invoices or signature requests, but this release creates no public invoice URL or client portal. It intentionally omits accounting ledgers, payment processing, tax jurisdiction logic, currency conversion, recurring billing, and email synchronization.
+
+## Client Portal
+
+ArcadiaOne serves the responsive Client Portal from `/portal` in the existing Next.js container and hostname. It is a separate application shell and security boundary, not the internal UI with hidden navigation.
+
+### Identity, invitation, and sessions
+
+External identities use `ClientPortalUser`, never the internal `User` model. Each identity is fixed to one organization and one client. Internal administrators and managers can open a Client's **Portal** tab, select an active contact with an email address, and generate a one-time 72-hour activation URL. Tokens are generated with cryptographic randomness, stored only as keyed hashes, expire, and are atomically marked used. Because this installation has no mail transport, the UI accurately presents a copy-once manual link rather than claiming an email was sent. Passwords use the same scrypt policy as internal accounts.
+
+Portal sessions use their own `arcadia_portal_session` HttpOnly, SameSite=Lax cookie, token table, HMAC domain, 12-hour expiry, and `/portal` cookie path. They cannot satisfy internal authorization. Deactivation increments a session version and deletes sessions; every request also rechecks the portal user, contact, client status, and organization. Login and activation have bounded, in-process rate limiting suitable for the single-VPS deployment. Production cookies are Secure.
+
+### Explicit access and client scoping
+
+All portal reads derive `organizationId` and `clientId` from the authenticated portal session; browser-supplied client IDs are never authorization inputs. Direct object routes return not found unless both match. Existing records default closed after migration:
+
+- Projects require `portalVisible`; only `clientDescription` and explicitly visible milestones/client descriptions are returned.
+- Documents require an active `DocumentPortalShare`. Downloads stream the current version through an authenticated, no-store route; no storage key or public URL is exposed. Withdrawal is immediate.
+- Invoices require `portalPublished` and a publishable state (`ISSUED`, `SENT`, `PARTIALLY_PAID`, `PAID`, or `OVERDUE`). Generated portal PDFs omit internal notes, payment references, and comments.
+- Rentals require `portalVisible` and expose schedule, status, project (only if visible), and equipment name/asset number—not condition, damage, preparation, valuation, or replacement-cost fields.
+- Signature requests are limited to signers connected to that client/contact. The portal reports provider state without duplicating or leaking provider metadata.
+- `ClientApprovalRequest` is explicitly separate from legal e-signature. A pending response can transition once to approved or declined with an optional preserved comment and responder/timestamp.
+
+### Administration and auditing
+
+The internal Client **Portal** tab manages invitations, access revocation/reactivation, project publication, document share/withdrawal, invoice publication, and approval requests. It shows last login and current exposure without ever returning password hashes or token hashes. Meaningful events (login, activation, password change, document download, invoice view, and approval response) are recorded in `PortalActivity`; invasive analytics are intentionally absent. Future notifications can subscribe to these explicit workflow events without changing the portal authorization model.
+
+Run the non-destructive migration with `npm run db:migrate`. Existing projects, milestones, rentals, invoices, and documents remain hidden by default.

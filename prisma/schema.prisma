@@ -55,6 +55,11 @@ model Organization {
   signatureRequests                  SignatureRequest[]
   signatureSigners                   SignatureSigner[]
   signatureEvents                    SignatureEvent[]
+  clientPortalUsers                  ClientPortalUser[]
+  clientPortalInvitations            ClientPortalInvitation[]
+  documentPortalShares               DocumentPortalShare[]
+  clientApprovalRequests             ClientApprovalRequest[]
+  portalActivities                   PortalActivity[]
   invoicePrefix                      String                             @default("INV-")
   nextInvoiceSequence                Int                                @default(1)
   defaultCurrency                    String                             @default("USD")
@@ -141,13 +146,13 @@ model Employee {
 }
 
 model Project {
-  id                String             @id @default(uuid())
+  id                String                  @id @default(uuid())
   organizationId    String
   projectNumber     String?
   name              String
   description       String?
-  status            ProjectStatus      @default(PLANNING)
-  priority          ProjectPriority    @default(NORMAL)
+  status            ProjectStatus           @default(PLANNING)
+  priority          ProjectPriority         @default(NORMAL)
   startDate         DateTime?
   targetEndDate     DateTime?
   actualEndDate     DateTime?
@@ -156,18 +161,21 @@ model Project {
   clientId          String?
   location          String?
   notes             String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  projectManager    Employee?          @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
+  portalVisible     Boolean                 @default(false)
+  clientDescription String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  projectManager    Employee?               @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
   members           ProjectMember[]
   milestones        ProjectMilestone[]
   activities        ProjectActivity[]
   tasks             Task[]
-  client            Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client            Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
   rentals           Rental[]
   documentRelations DocumentRelation[]
   invoices          Invoice[]
+  approvalRequests  ClientApprovalRequest[]
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
@@ -177,13 +185,13 @@ model Project {
 }
 
 model Client {
-  id                String             @id @default(uuid())
+  id                String                   @id @default(uuid())
   organizationId    String
   createdByUserId   String
   name              String
   displayName       String?
   clientNumber      String?
-  status            ClientStatus       @default(PROSPECT)
+  status            ClientStatus             @default(PROSPECT)
   type              ClientType?
   primaryContactId  String?
   website           String?
@@ -196,17 +204,22 @@ model Client {
   postalCode        String?
   country           String?
   notes             String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy         User               @relation("ClientCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  contacts          ClientContact[]    @relation("ClientContacts")
-  primaryContact    ClientContact?     @relation("PrimaryClientContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy         User                     @relation("ClientCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  contacts          ClientContact[]          @relation("ClientContacts")
+  primaryContact    ClientContact?           @relation("PrimaryClientContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
   projects          Project[]
   activities        ClientActivity[]
   rentals           Rental[]
   documentRelations DocumentRelation[]
   invoices          Invoice[]
+  portalUsers       ClientPortalUser[]
+  portalInvitations ClientPortalInvitation[]
+  documentShares    DocumentPortalShare[]
+  approvalRequests  ClientApprovalRequest[]
+  portalActivities  PortalActivity[]
 
   @@unique([organizationId, clientNumber])
   @@index([organizationId, status, name])
@@ -214,7 +227,7 @@ model Client {
 }
 
 model ClientContact {
-  id                     String                  @id @default(uuid())
+  id                     String                   @id @default(uuid())
   organizationId         String
   clientId               String
   firstName              String
@@ -224,16 +237,18 @@ model ClientContact {
   phone                  String?
   mobilePhone            String?
   preferredContactMethod PreferredContactMethod?
-  primary                Boolean                 @default(false)
-  active                 Boolean                 @default(true)
+  primary                Boolean                  @default(false)
+  active                 Boolean                  @default(true)
   notes                  String?
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  client                 Client                  @relation("ClientContacts", fields: [clientId], references: [id], onDelete: Cascade)
-  primaryFor             Client[]                @relation("PrimaryClientContact")
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  organization           Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client                 Client                   @relation("ClientContacts", fields: [clientId], references: [id], onDelete: Cascade)
+  primaryFor             Client[]                 @relation("PrimaryClientContact")
   rentals                Rental[]
   signatureSigners       SignatureSigner[]
+  portalUser             ClientPortalUser?
+  portalInvitations      ClientPortalInvitation[]
 
   @@index([organizationId, clientId, active])
   @@index([organizationId, lastName, firstName])
@@ -277,20 +292,22 @@ model ProjectMember {
 }
 
 model ProjectMilestone {
-  id             String          @id @default(uuid())
-  organizationId String
-  projectId      String
-  name           String
-  description    String?
-  targetDate     DateTime?
-  completedAt    DateTime?
-  status         MilestoneStatus @default(PENDING)
-  sortOrder      Int             @default(0)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks          Task[]
+  id                String          @id @default(uuid())
+  organizationId    String
+  projectId         String
+  name              String
+  description       String?
+  portalVisible     Boolean         @default(false)
+  clientDescription String?
+  targetDate        DateTime?
+  completedAt       DateTime?
+  status            MilestoneStatus @default(PENDING)
+  sortOrder         Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks             Task[]
 
   @@index([organizationId, projectId, sortOrder])
   @@index([organizationId, status, targetDate])
@@ -512,36 +529,38 @@ enum VerificationStatus {
 }
 
 model User {
-  id                  String             @id @default(uuid())
+  id                  String                   @id @default(uuid())
   organizationId      String
-  employeeId          String?            @unique
+  employeeId          String?                  @unique
   email               String
   passwordHash        String
-  role                UserRole           @default(EMPLOYEE)
-  active              Boolean            @default(true)
-  mustChangePassword  Boolean            @default(true)
+  role                UserRole                 @default(EMPLOYEE)
+  active              Boolean                  @default(true)
+  mustChangePassword  Boolean                  @default(true)
   lastLoginAt         DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee            Employee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee            Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   sessions            Session[]
-  createdTasks        Task[]             @relation("TaskCreator")
-  assignedTasks       Task[]             @relation("TaskAssigner")
+  createdTasks        Task[]                   @relation("TaskCreator")
+  assignedTasks       Task[]                   @relation("TaskAssigner")
   taskComments        TaskComment[]
   taskActivities      TaskActivity[]
-  createdClients      Client[]           @relation("ClientCreator")
+  createdClients      Client[]                 @relation("ClientCreator")
   clientActivities    ClientActivity[]
-  createdRentals      Rental[]           @relation("RentalCreator")
+  createdRentals      Rental[]                 @relation("RentalCreator")
   rentalActivities    RentalActivity[]
-  createdDocuments    Document[]         @relation("DocumentCreator")
-  uploadedVersions    DocumentVersion[]  @relation("DocumentVersionUploader")
+  createdDocuments    Document[]               @relation("DocumentCreator")
+  uploadedVersions    DocumentVersion[]        @relation("DocumentVersionUploader")
   documentActivities  DocumentActivity[]
-  createdInvoices     Invoice[]          @relation("InvoiceCreator")
-  recordedPayments    Payment[]          @relation("PaymentRecorder")
-  requestedSignatures SignatureRequest[] @relation("SignatureRequester")
+  createdInvoices     Invoice[]                @relation("InvoiceCreator")
+  recordedPayments    Payment[]                @relation("PaymentRecorder")
+  requestedSignatures SignatureRequest[]       @relation("SignatureRequester")
   invoiceActivities   InvoiceActivity[]
   signatureEvents     SignatureEvent[]
+  portalInvitations   ClientPortalInvitation[] @relation("PortalInviter")
+  approvalRequests    ClientApprovalRequest[]  @relation("ApprovalRequester")
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -645,6 +664,7 @@ model Rental {
   pickupNotes            String?
   returnNotes            String?
   internalNotes          String?
+  portalVisible          Boolean            @default(false)
   createdByUserId        String
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
@@ -806,28 +826,30 @@ model DocumentCategory {
 }
 
 model Document {
-  id                String              @id @default(uuid())
+  id                String                  @id @default(uuid())
   organizationId    String
   title             String
   description       String?
   categoryId        String?
-  status            DocumentStatus      @default(ACTIVE)
-  sensitivity       DocumentSensitivity @default(NORMAL)
-  currentVersionId  String?             @unique
+  status            DocumentStatus          @default(ACTIVE)
+  sensitivity       DocumentSensitivity     @default(NORMAL)
+  currentVersionId  String?                 @unique
   createdByUserId   String
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
   archivedAt        DateTime?
-  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  category          DocumentCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  createdBy         User                @relation("DocumentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  currentVersion    DocumentVersion?    @relation("CurrentDocumentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
-  versions          DocumentVersion[]   @relation("DocumentVersions")
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category          DocumentCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy         User                    @relation("DocumentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  currentVersion    DocumentVersion?        @relation("CurrentDocumentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions          DocumentVersion[]       @relation("DocumentVersions")
   relations         DocumentRelation[]
   activities        DocumentActivity[]
-  signatureRequests SignatureRequest[]  @relation("SignatureSourceDocument")
-  signedResults     SignatureRequest[]  @relation("SignatureSignedDocument")
-  invoiceDocuments  Invoice[]           @relation("InvoiceDocument")
+  signatureRequests SignatureRequest[]      @relation("SignatureSourceDocument")
+  signedResults     SignatureRequest[]      @relation("SignatureSignedDocument")
+  invoiceDocuments  Invoice[]               @relation("InvoiceDocument")
+  portalShares      DocumentPortalShare[]
+  approvalRequests  ClientApprovalRequest[]
 
   @@index([organizationId, status, updatedAt])
   @@index([organizationId, categoryId])
@@ -1120,6 +1142,7 @@ model Invoice {
   sentAt              DateTime?
   paidAt              DateTime?
   voidedAt            DateTime?
+  portalPublished     Boolean           @default(false)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -1299,4 +1322,141 @@ model SignatureWebhookEvent {
   signatureRequest   SignatureRequest @relation(fields: [signatureRequestId], references: [id], onDelete: Cascade)
 
   @@unique([signatureRequestId, providerEventId])
+}
+
+enum ClientApprovalStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CANCELLED
+}
+
+enum PortalActivityType {
+  LOGIN
+  INVITATION_ACTIVATED
+  DOCUMENT_VIEWED
+  DOCUMENT_DOWNLOADED
+  APPROVAL_SUBMITTED
+  SIGNATURE_OPENED
+  INVOICE_VIEWED
+  PASSWORD_CHANGED
+}
+
+/// External identity. It is intentionally unrelated to the internal User and Session models.
+model ClientPortalUser {
+  id                String                   @id @default(uuid())
+  organizationId    String
+  clientId          String
+  clientContactId   String?                  @unique
+  email             String
+  passwordHash      String?
+  active            Boolean                  @default(true)
+  sessionVersion    Int                      @default(1)
+  lastLoginAt       DateTime?
+  invitedAt         DateTime?
+  activatedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client            Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientContact     ClientContact?           @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
+  sessions          ClientPortalSession[]
+  invitations       ClientPortalInvitation[]
+  approvalResponses ClientApprovalRequest[]  @relation("ApprovalResponder")
+  activities        PortalActivity[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, clientId, active])
+}
+
+model ClientPortalSession {
+  id             String           @id @default(uuid())
+  tokenHash      String           @unique
+  portalUserId   String
+  sessionVersion Int
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+  portalUser     ClientPortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+
+  @@index([portalUserId])
+  @@index([expiresAt])
+}
+
+model ClientPortalInvitation {
+  id              String           @id @default(uuid())
+  organizationId  String
+  clientId        String
+  clientContactId String
+  portalUserId    String
+  invitedByUserId String
+  tokenHash       String           @unique
+  expiresAt       DateTime
+  usedAt          DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientContact   ClientContact    @relation(fields: [clientContactId], references: [id], onDelete: Cascade)
+  portalUser      ClientPortalUser @relation(fields: [portalUserId], references: [id], onDelete: Cascade)
+  invitedBy       User             @relation("PortalInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, clientId, expiresAt])
+}
+
+/// An explicit grant; merely relating a document to a client or project never shares it.
+model DocumentPortalShare {
+  id             String       @id @default(uuid())
+  organizationId String
+  clientId       String
+  documentId     String
+  sharedAt       DateTime     @default(now())
+  withdrawnAt    DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, documentId])
+  @@index([organizationId, clientId, withdrawnAt])
+}
+
+model ClientApprovalRequest {
+  id                      String               @id @default(uuid())
+  organizationId          String
+  clientId                String
+  projectId               String?
+  documentId              String?
+  title                   String
+  description             String?
+  status                  ClientApprovalStatus @default(PENDING)
+  requestedByUserId       String
+  requestedAt             DateTime             @default(now())
+  dueAt                   DateTime?
+  respondedAt             DateTime?
+  respondedByPortalUserId String?
+  responseComment         String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  organization            Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client                  Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project                 Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  document                Document?            @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  requestedBy             User                 @relation("ApprovalRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  respondedBy             ClientPortalUser?    @relation("ApprovalResponder", fields: [respondedByPortalUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, clientId, status])
+}
+
+model PortalActivity {
+  id             String             @id @default(uuid())
+  organizationId String
+  clientId       String
+  portalUserId   String?
+  type           PortalActivityType
+  subjectId      String?
+  createdAt      DateTime           @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client         Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  portalUser     ClientPortalUser?  @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, clientId, createdAt])
 }
