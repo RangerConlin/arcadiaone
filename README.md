@@ -318,3 +318,11 @@ The current module includes the paginated/searchable project directory, create/e
 Project data access is organization-scoped on the server and enforced by the authenticated session (`src/modules/projects/authorization.ts`). ADMIN may administer all projects and project roles. MANAGER may create projects (as their own project manager) and manage projects where they are the assigned project manager. EMPLOYEE has read access only to projects they manage or actively belong to. Only ADMIN may change a project's manager. UI visibility is not treated as authorization.
 
 Tasks reference projects and project milestones directly: a project detail page has a Tasks tab, and milestone progress is derived from linked tasks. Project managers are employees (`Project.projectManagerId`), not user accounts.
+
+## Clients and relationship history
+
+ArcadiaOne includes a deliberately lightweight client workspace. A `Client` is an independent organization/account and may be a `PROSPECT`, `ACTIVE`, `INACTIVE`, or `ARCHIVED`; making a prospect active is simply a status edit, not a sales pipeline. Client numbers are optional. Each client can have active or inactive contacts, with application logic maintaining at most one primary contact, and compact manual phone, email, meeting, note, or other activity entries.
+
+Projects can optionally link to a client. The existing `Project.clientName` text remains intact for legacy records and unlisted clients, while `Project.clientId` provides navigation and reporting when a relationship is selected. Neither clients nor projects require the other. Organization-scoped server authorization limits employees to clients on projects they can see; managers can additionally work with clients they created or manage through a project; administrators can manage the full organization directory.
+
+The relationships intentionally leave clean attachment points for future invoices, rentals, agreements, documents, e-signatures, and selectively provisioned client portal access. None of those modules—and no opportunities, forecasting, campaign, email-sync, or mandatory lead workflow—are implemented by this feature.
