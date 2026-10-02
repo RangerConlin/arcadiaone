@@ -1,0 +1,106 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { getCurrentOrganization } from "@/lib/organization";
+import { prisma } from "@/lib/prisma";
+import { calculateExpirationDate } from "./status";
+import { employeeQualificationSchema, qualificationTypeSchema, requirementSchema } from "./validation";
+
+const value = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
+const checked = (data: FormData, key: string) => data.get(key) === "on" || data.get(key) === "true";
+const fail = (path: string, message: string): never => redirect(`${path}?error=${encodeURIComponent(message)}`);
+const message = (error: { issues: { message: string }[] }) => error.issues[0]?.message ?? "Check the form and try again.";
+
+function typeInput(data: FormData) {
+  return { name: value(data, "name"), abbreviation: value(data, "abbreviation"), description: value(data, "description"), category: value(data, "category"), issuingOrganization: value(data, "issuingOrganization"), expirationBehavior: value(data, "expirationBehavior"), defaultValidityMonths: value(data, "defaultValidityMonths"), credentialNumberExpected: checked(data, "credentialNumberExpected"), documentExpected: checked(data, "documentExpected"), active: checked(data, "active") };
+}
+
+export async function saveQualificationType(data: FormData) {
+  const id = value(data, "id");
+  const path = id ? `/administration/qualifications/${id}/edit` : "/administration/qualifications/new";
+  const parsed = qualificationTypeSchema.safeParse(typeInput(data));
+  if (!parsed.success) return fail(path, message(parsed.error));
+  const parsedData = parsed.data;
+  const organization = await getCurrentOrganization();
+  try {
+    if (id) {
+      const result = await prisma.qualificationType.updateMany({ where: { id, organizationId: organization.id }, data: parsedData });
+      if (!result.count) fail("/administration/qualifications", "Qualification type was not found.");
+    } else await prisma.qualificationType.create({ data: { ...parsedData, organizationId: organization.id } });
+  } catch { fail(path, "The qualification type could not be saved. Its name may already be in use."); }
+  redirect("/administration/qualifications?success=Qualification type saved.");
+}
+
+function credentialInput(data: FormData) {
+  return { employeeId: value(data, "employeeId"), qualificationTypeId: value(data, "qualificationTypeId"), credentialNumber: value(data, "credentialNumber"), issuingOrganization: value(data, "issuingOrganization"), issueDate: value(data, "issueDate"), expirationDate: value(data, "expirationDate"), notes: value(data, "notes") };
+}
+
+export async function saveEmployeeQualification(data: FormData) {
+  const id = value(data, "id");
+  const employeeId = value(data, "employeeId");
+  const path = `/people/${employeeId}/qualifications/${id || "new"}`;
+  const parsed = employeeQualificationSchema.safeParse(credentialInput(data));
+  if (!parsed.success) return fail(path, message(parsed.error));
+  const parsedData = parsed.data;
+  const organization = await getCurrentOrganization();
+  const [employee, type] = await Promise.all([
+    prisma.employee.findFirst({ where: { id: employeeId, organizationId: organization.id } }),
+    prisma.qualificationType.findFirst({ where: { id: parsedData.qualificationTypeId, organizationId: organization.id, active: true } }),
+  ]);
+  if (!employee || !type) return fail(`/people/${employeeId}`, "Employee or qualification type was not found.");
+  let expirationDate = parsedData.expirationDate;
+  if (type.expirationBehavior === "DOES_NOT_EXPIRE") expirationDate = null;
+  if (type.expirationBehavior === "CALCULATED") {
+    if (!parsedData.issueDate || !type.defaultValidityMonths) return fail(path, "An issue date is required to calculate expiration.");
+    expirationDate = calculateExpirationDate(parsedData.issueDate, type.defaultValidityMonths);
+  }
+  const payload = { ...parsedData, expirationDate };
+  if (id) {
+    const existing = await prisma.employeeQualification.findFirst({ where: { id, employeeId, organizationId: organization.id } });
+    if (!existing) fail(`/people/${employeeId}`, "Qualification record was not found.");
+    await prisma.employeeQualification.update({ where: { id }, data: { ...payload, verificationStatus: "UNVERIFIED", verifiedAt: null, verifiedByUserId: null, verificationNote: null } });
+  } else await prisma.employeeQualification.create({ data: { ...payload, organizationId: organization.id } });
+  redirect(`/people/${employeeId}?success=Qualification saved and submitted for verification.`);
+}
+
+export async function reviewQualification(data: FormData) {
+  const id = value(data, "id"); const employeeId = value(data, "employeeId");
+  const rawStatus = value(data, "status");
+  if (rawStatus !== "VERIFIED" && rawStatus !== "REJECTED") fail(`/people/${employeeId}`, "Invalid review status.");
+  const organization = await getCurrentOrganization();
+  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { verificationStatus: rawStatus as "VERIFIED" | "REJECTED", verifiedAt: new Date(), verificationNote: value(data, "verificationNote") || null } });
+  redirect(`/people/${employeeId}?success=Verification status updated.`);
+}
+
+export async function archiveEmployeeQualification(data: FormData) {
+  const id = value(data, "id"); const employeeId = value(data, "employeeId");
+  const organization = await getCurrentOrganization();
+  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { archivedAt: new Date() } });
+  redirect(`/people/${employeeId}?success=Qualification archived.`);
+}
+
+export async function savePositionRequirement(data: FormData) {
+  const parsed = requirementSchema.safeParse({ positionId: value(data, "positionId"), qualificationTypeId: value(data, "qualificationTypeId"), required: value(data, "required") === "true", notes: value(data, "notes") });
+  const path = `/administration/positions/${value(data, "positionId")}/edit`;
+  if (!parsed.success) return fail(path, message(parsed.error));
+  const parsedData = parsed.data;
+  const organization = await getCurrentOrganization();
+  const [position, type] = await Promise.all([prisma.position.findFirst({ where: { id: parsedData.positionId, organizationId: organization.id } }), prisma.qualificationType.findFirst({ where: { id: parsedData.qualificationTypeId, organizationId: organization.id } })]);
+  if (!position || !type) return fail(path, "Position or qualification type was not found.");
+  await prisma.positionQualificationRequirement.upsert({ where: { positionId_qualificationTypeId: { positionId: position.id, qualificationTypeId: type.id } }, update: { required: parsedData.required, notes: parsedData.notes }, create: { ...parsedData, organizationId: organization.id } });
+  redirect(`${path}?success=Qualification requirement saved.`);
+}
+
+export async function removePositionRequirement(data: FormData) {
+  const id = value(data, "id"); const positionId = value(data, "positionId"); const organization = await getCurrentOrganization();
+  await prisma.positionQualificationRequirement.deleteMany({ where: { id, positionId, organizationId: organization.id } });
+  redirect(`/administration/positions/${positionId}/edit?success=Requirement removed.`);
+}
+
+export async function updateQualificationSettings(data: FormData) {
+  const days = Number(value(data, "warningDays"));
+  if (!Number.isInteger(days) || days < 1 || days > 365) fail("/administration/qualifications", "Warning threshold must be 1–365 days.");
+  const organization = await getCurrentOrganization();
+  await prisma.organization.update({ where: { id: organization.id }, data: { qualificationExpirationWarningDays: days } });
+  redirect("/administration/qualifications?success=Expiration warning threshold updated.");
+}

@@ -4,9 +4,9 @@ ArcadiaOne is an employee-management and project-management web application for 
 
 ## Status
 
-This repository contains the initial production-capable ArcadiaOne application foundation. The People module is the first functional area and supports employee directory, employee profile, employee create/edit, department administration, and position administration.
+This repository contains the ArcadiaOne application foundation. The People module supports the employee directory, employee profiles, employee create/edit, department and position administration, and qualification management.
 
-The following areas are intentionally not implemented yet: certifications, training, projects, tasks, scheduling, documents, timekeeping, payroll, authentication, advanced permissions, notifications, external integrations, and reporting engine features.
+The following areas are intentionally not implemented yet: training/LMS, projects, tasks, scheduling, general document management, timekeeping, payroll, authentication, advanced permissions, notifications, external integrations, and reporting engine features.
 
 ## Technology
 
@@ -29,6 +29,10 @@ The database currently includes:
 - `Department`
 - `Position`
 - `Employee`
+- `QualificationType`
+- `EmployeeQualification`
+- `PositionQualificationRequirement`
+- `QualificationDocument` (metadata only)
 - `SystemHealth`
 
 Employees belong to an organization, may belong to a department and position, and may optionally reference another employee as their supervisor. Employee numbers are unique within an organization when provided.
@@ -43,9 +47,26 @@ Implemented:
 - Employee create/edit forms with server-side validation
 - Department create/edit/activate/deactivate
 - Position create/edit/activate/deactivate
+- Configurable qualification types and expiration rules
+- Employee credential submission, editing, archival, and verification state
+- Required/preferred qualifications by position
+- Employee and organization-wide qualification status views
+- Dashboard qualification attention counts
 - Database-backed `/api/health`
 
 Placeholder navigation exists for Projects, Calendar, and Reports.
+
+## Qualifications architecture
+
+`QualificationType` is an organization-scoped reusable definition. It supports a small category set, optional default issuer, credential/document expectations, and three expiration policies: no expiration, a manually tracked expiration, or an expiration calculated from the issue date and a default validity in calendar months. Administrators deactivate referenced types instead of deleting them.
+
+`EmployeeQualification` records what an employee holds. Expiration state (`Current`, `Expiring soon`, `Expired`, or `No expiration`) is derived at read time by the reusable `src/modules/qualifications/status.ts` service. The organization owns one warning threshold (60 days by default), configurable on **Administration → Qualifications**. Position requirements are a separate many-to-many model and distinguish required from preferred credentials. Requirement evaluation also reports missing and unverified credentials without persisting derived state.
+
+New and materially edited employee qualification records are always `UNVERIFIED`; an edit clears previous review metadata. A review can mark a record `VERIFIED` or `REJECTED`, retain its timestamp, and hold a short review note. The schema also reserves `verifiedByUserId` and uploader identifiers for the application identity layer. All current reads and writes derive the organization on the server and scope related-record validation to it.
+
+`QualificationDocument` provides organization-scoped document metadata and an opaque storage key, deliberately keeping file content outside PostgreSQL. No binary storage backend or upload endpoint is enabled in this pass: this avoids implying secure storage exists and lets a future local-volume or S3-compatible adapter be introduced without changing qualification business logic. Once authentication is added, document download/upload routes must enforce employee visibility and role authorization before calling that adapter.
+
+> **Authorization boundary:** this repository's foundation still does not contain authentication or user accounts. Qualification server actions follow the existing server-side organization boundary, but the role-specific ADMIN/MANAGER/EMPLOYEE rules cannot be securely enforced until an authenticated identity is available. Do not expose the application publicly before that prerequisite is implemented.
 
 ## Environment
 
