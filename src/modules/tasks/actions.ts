@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { notifyTaskAssigned } from "@/modules/notifications/events";
 import { canManageTask, requireTaskAccess } from "./authorization";
 import { taskInput, taskSchema } from "./validation";
 
@@ -51,6 +52,7 @@ export async function createTask(formData: FormData) {
   } catch (error) {
     fail("/tasks/new", error instanceof Error ? error.message : "Task could not be created.");
   }
+  if (data.assignedToEmployeeId) await notifyTaskAssigned({ organizationId: actor.organizationId, taskId, actorUserId: actor.id });
   redirect(`/tasks/${taskId}?success=Task created.`);
 }
 
@@ -84,6 +86,9 @@ export async function updateTask(formData: FormData) {
       await tx.taskActivity.createMany({ data: events.map((event) => ({ ...event, organizationId: actor.organizationId, taskId: id, userId: actor.id })) });
     });
   } catch (error) { fail(`/tasks/${id}`, error instanceof Error ? error.message : "Task could not be updated."); }
+  if (data.assignedToEmployeeId && data.assignedToEmployeeId !== existing.assignedToEmployeeId) {
+    await notifyTaskAssigned({ organizationId: actor.organizationId, taskId: id, actorUserId: actor.id });
+  }
   redirect(`/tasks/${id}?success=Task updated.`);
 }
 

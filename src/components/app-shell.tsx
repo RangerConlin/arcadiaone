@@ -17,6 +17,11 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     subs: [{ label: "Documents", href: "/documents" }, ...(user.role === "ADMIN" || user.role === "MANAGER" ? [{ label: "Upload", href: "/documents/upload" }] : [])],
   };
 
+  const calendar: NavModule = {
+    id: "calendar", label: "Calendar", icon: "calendar", href: "/calendar", prefix: "/calendar",
+    subs: [{ label: "Calendar", href: "/calendar" }, { label: "My calendar", href: "/calendar/my" }, { label: "New event", href: "/calendar/events/new" }],
+  };
+
   if (user.role === "EMPLOYEE") {
     const profile = user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : [];
     return [
@@ -25,6 +30,7 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
       projects,
       clients,
       rentals,
+      calendar,
       documents,
       { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }] },
     ];
@@ -37,7 +43,7 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     clients,
     rentals,
     { id: "tasks", label: "Tasks", icon: "tasks", href: "/tasks", prefix: "/tasks", subs: [{ label: "All tasks", href: "/tasks" }, { label: "New task", href: "/tasks/new" }] },
-    { id: "calendar", label: "Calendar", icon: "calendar", href: "/calendar", prefix: "/calendar", subs: [{ label: "Calendar", href: "/calendar" }] },
+    calendar,
     { id: "reports", label: "Reports", icon: "reports", href: "/reports", prefix: "/reports", subs: [{ label: "Reports", href: "/reports" }] },
     documents,
     { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }, { label: "Prepare", href: "/signatures/new" }] },
@@ -53,13 +59,14 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
             { label: "Project roles", href: "/administration/project-roles" },
             { label: "Users", href: "/administration/users" },
             { label: "Documents", href: "/administration/documents" },
+            { label: "Calendar & reminders", href: "/administration/reminders" },
           ],
         }]
       : []),
   ];
 }
 
-export function AppShell({ children, organizationName, user }: { children: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
+export function AppShell({ children, notifications, organizationName, user }: { children: React.ReactNode; notifications?: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
   const modules = buildModules(user);
   return (
     <div className="app-shell">
@@ -71,6 +78,7 @@ export function AppShell({ children, organizationName, user }: { children: React
             <p className="app-tagline">Employee and project management</p>
           </div>
           <div className="app-user">
+            {notifications}
             <div className="text-right">
               <Link className="app-user-name" href="/account">{user.displayName}</Link>
               <p className="app-user-role">{user.role}</p>

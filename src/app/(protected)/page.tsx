@@ -5,6 +5,7 @@ import { getProjectDashboardStats } from "@/modules/projects/data";
 import { getTaskDashboardStats } from "@/modules/tasks/data";
 import { getQualificationsOverview } from "@/modules/qualifications/data";
 import { getRentalDashboard } from "@/modules/rentals/data";
+import { DashboardSchedule } from "@/modules/calendar/dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
         <Metric label="Overdue" tone="bad" value={taskStats.overdue} />
         <Metric label="In progress" tone="violet" value={taskStats.inProgress} />
       </section>
+      <DashboardSchedule />
       <section className="mt-6 rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5"><div className="flex items-center justify-between"><div><h2 className="text-base font-semibold">Qualifications attention</h2><p className="mt-1 text-sm text-[color:var(--muted)]">Current organization credential issues.</p></div><SecondaryLink href="/people/qualifications">Open qualifications</SecondaryLink></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Expired" value={expired}/><Metric label="Expiring soon" value={expiring}/><Metric label="Missing required" value={missing}/><Metric label="Awaiting verification" value={unverified}/></div></section>
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold">Projects</h2><SecondaryLink href="/projects">View projects</SecondaryLink></div>

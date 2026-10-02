@@ -34,6 +34,24 @@ services:
         condition: service_healthy
     command: npm run db:migrate
 
+  # Evaluates condition-based reminders (due soon, overdue, expiring) on an interval.
+  # Internal only: no ports are published or exposed and it has no Traefik labels.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    container_name: arcadiaone-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: ${DATABASE_URL}
+      NOTIFICATION_JOB_INTERVAL_MINUTES: ${NOTIFICATION_JOB_INTERVAL_MINUTES:-15}
+
   arcadiaone:
     build:
       context: .

@@ -66,6 +66,14 @@ model Organization {
   defaultPaymentTerms                String?
   invoiceFooter                      String?
   billingAddress                     String?
+  timezone                           String                             @default("UTC")
+  taskDueSoonDays                    Int                                @default(7)
+  rentalDueSoonDays                  Int                                @default(3)
+  invoiceDueSoonDays                 Int                                @default(7)
+  notificationArchiveAfterDays       Int                                @default(90)
+  calendarEvents                     CalendarEvent[]
+  notifications                      Notification[]
+  notificationPreferences            NotificationPreference[]
 }
 
 model Department {
@@ -136,6 +144,7 @@ model Employee {
   receivedRentals    Rental[]                @relation("RentalReceiver")
   documentRelations  DocumentRelation[]
   signatureSigners   SignatureSigner[]
+  calendarEvents     CalendarEvent[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, employmentStatus])
@@ -176,6 +185,7 @@ model Project {
   documentRelations DocumentRelation[]
   invoices          Invoice[]
   approvalRequests  ClientApprovalRequest[]
+  calendarEvents    CalendarEvent[]
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
@@ -220,6 +230,7 @@ model Client {
   documentShares    DocumentPortalShare[]
   approvalRequests  ClientApprovalRequest[]
   portalActivities  PortalActivity[]
+  calendarEvents    CalendarEvent[]
 
   @@unique([organizationId, clientNumber])
   @@index([organizationId, status, name])
@@ -529,38 +540,42 @@ enum VerificationStatus {
 }
 
 model User {
-  id                  String                   @id @default(uuid())
-  organizationId      String
-  employeeId          String?                  @unique
-  email               String
-  passwordHash        String
-  role                UserRole                 @default(EMPLOYEE)
-  active              Boolean                  @default(true)
-  mustChangePassword  Boolean                  @default(true)
-  lastLoginAt         DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee            Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  sessions            Session[]
-  createdTasks        Task[]                   @relation("TaskCreator")
-  assignedTasks       Task[]                   @relation("TaskAssigner")
-  taskComments        TaskComment[]
-  taskActivities      TaskActivity[]
-  createdClients      Client[]                 @relation("ClientCreator")
-  clientActivities    ClientActivity[]
-  createdRentals      Rental[]                 @relation("RentalCreator")
-  rentalActivities    RentalActivity[]
-  createdDocuments    Document[]               @relation("DocumentCreator")
-  uploadedVersions    DocumentVersion[]        @relation("DocumentVersionUploader")
-  documentActivities  DocumentActivity[]
-  createdInvoices     Invoice[]                @relation("InvoiceCreator")
-  recordedPayments    Payment[]                @relation("PaymentRecorder")
-  requestedSignatures SignatureRequest[]       @relation("SignatureRequester")
-  invoiceActivities   InvoiceActivity[]
-  signatureEvents     SignatureEvent[]
-  portalInvitations   ClientPortalInvitation[] @relation("PortalInviter")
-  approvalRequests    ClientApprovalRequest[]  @relation("ApprovalRequester")
+  id                      String                   @id @default(uuid())
+  organizationId          String
+  employeeId              String?                  @unique
+  email                   String
+  passwordHash            String
+  role                    UserRole                 @default(EMPLOYEE)
+  active                  Boolean                  @default(true)
+  mustChangePassword      Boolean                  @default(true)
+  lastLoginAt             DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee                Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  sessions                Session[]
+  createdTasks            Task[]                   @relation("TaskCreator")
+  assignedTasks           Task[]                   @relation("TaskAssigner")
+  taskComments            TaskComment[]
+  taskActivities          TaskActivity[]
+  createdClients          Client[]                 @relation("ClientCreator")
+  clientActivities        ClientActivity[]
+  createdRentals          Rental[]                 @relation("RentalCreator")
+  rentalActivities        RentalActivity[]
+  createdDocuments        Document[]               @relation("DocumentCreator")
+  uploadedVersions        DocumentVersion[]        @relation("DocumentVersionUploader")
+  documentActivities      DocumentActivity[]
+  createdInvoices         Invoice[]                @relation("InvoiceCreator")
+  recordedPayments        Payment[]                @relation("PaymentRecorder")
+  requestedSignatures     SignatureRequest[]       @relation("SignatureRequester")
+  invoiceActivities       InvoiceActivity[]
+  signatureEvents         SignatureEvent[]
+  portalInvitations       ClientPortalInvitation[] @relation("PortalInviter")
+  approvalRequests        ClientApprovalRequest[]  @relation("ApprovalRequester")
+  timezone                String?
+  createdCalendarEvents   CalendarEvent[]          @relation("CalendarEventCreator")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -1459,4 +1474,149 @@ model PortalActivity {
   portalUser     ClientPortalUser?  @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, clientId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Calendar and notifications
+// ---------------------------------------------------------------------------
+
+enum CalendarEventVisibility {
+  /// Only the creator and the assigned employee.
+  PRIVATE
+  /// Anyone who may see the linked project (requires a project).
+  PROJECT
+  /// Every internal user in the organization.
+  ORGANIZATION
+}
+
+enum CalendarEventStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+/// Standalone events only. Dates owned by other modules (tasks, rentals, invoices,
+/// qualifications, ...) are aggregated at read time and are never copied here.
+/// All-day events store their first/last calendar day as UTC midnight (date-only);
+/// timed events store UTC instants.
+model CalendarEvent {
+  id                 String                  @id @default(uuid())
+  organizationId     String
+  title              String
+  description        String?
+  startAt            DateTime
+  endAt              DateTime?
+  allDay             Boolean                 @default(false)
+  location           String?
+  visibility         CalendarEventVisibility @default(ORGANIZATION)
+  status             CalendarEventStatus     @default(SCHEDULED)
+  createdByUserId    String
+  updatedByUserId    String?
+  assignedEmployeeId String?
+  projectId          String?
+  clientId           String?
+  cancelledAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy          User                    @relation("CalendarEventCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  assignedEmployee   Employee?               @relation(fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  project            Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client             Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, startAt])
+  @@index([organizationId, assignedEmployeeId, startAt])
+  @@index([organizationId, projectId])
+  @@index([organizationId, createdByUserId])
+}
+
+enum NotificationCategory {
+  TASK_ASSIGNMENTS
+  TASK_REMINDERS
+  QUALIFICATIONS
+  RENTALS
+  INVOICES
+  SIGNATURES
+  APPROVALS
+  PROJECT_UPDATES
+  DOCUMENTS
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_TOMORROW
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  QUALIFICATION_EXPIRING
+  QUALIFICATION_EXPIRED
+  RENTAL_DUE_SOON
+  RENTAL_OVERDUE
+  INVOICE_DUE_SOON
+  INVOICE_OVERDUE
+  SIGNATURE_REQUESTED
+  APPROVAL_REQUESTED
+  CLIENT_RESPONSE_RECEIVED
+  PROJECT_MEMBER_ADDED
+  DOCUMENT_SHARED
+}
+
+enum NotificationEntityType {
+  TASK
+  PROJECT
+  EMPLOYEE_QUALIFICATION
+  RENTAL
+  INVOICE
+  SIGNATURE_REQUEST
+  CLIENT_APPROVAL_REQUEST
+  DOCUMENT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+/// Internal-user notification. A communication record only: reading or dismissing
+/// one never changes the underlying business record. Client portal users are not
+/// recipients of this model.
+model Notification {
+  id                String                  @id @default(uuid())
+  organizationId    String
+  userId            String
+  type              NotificationType
+  category          NotificationCategory
+  title             String
+  message           String
+  relatedEntityType NotificationEntityType?
+  relatedEntityId   String?
+  /// Generated server-side from trusted application routes; never from user input.
+  actionUrl         String?
+  /// Idempotency key for condition-based notifications, unique per recipient.
+  dedupeKey         String?
+  readAt            DateTime?
+  dismissedAt       DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, archivedAt, readAt, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+/// A missing row means the channel default applies (IN_APP on, others off).
+model NotificationPreference {
+  id             String               @id @default(uuid())
+  organizationId String
+  userId         String
+  category       NotificationCategory
+  channel        NotificationChannel  @default(IN_APP)
+  enabled        Boolean              @default(true)
+  updatedAt      DateTime             @updatedAt
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, channel])
+  @@index([organizationId])
 }

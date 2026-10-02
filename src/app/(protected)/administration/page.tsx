@@ -16,6 +16,11 @@ export default function AdministrationPage() {
           title="Departments"
         />
         <AdminCard
+          description="Set the organization time zone, due-soon windows for tasks, rentals and invoices, and notification archiving."
+          href="/administration/reminders"
+          title="Calendar and reminders"
+        />
+        <AdminCard
           description="Define qualification types, expiration rules, and organization warning settings."
           href="/administration/qualifications"
           title="Qualifications"

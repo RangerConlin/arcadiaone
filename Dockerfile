@@ -19,6 +19,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN npm run db:generate
 
+# Scheduled notification worker. Reuses the application source and dependencies (tsx runs the
+# TypeScript job code directly); it listens on no port.
+FROM migrator AS worker
+ENV NODE_ENV=production
+USER node
+CMD ["npm", "run", "worker"]
+
 FROM node:lts-alpine AS runner
 WORKDIR /app
 
