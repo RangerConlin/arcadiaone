@@ -15,6 +15,12 @@ export function documentVisibilityWhere(user: AuthenticatedUser): Prisma.Documen
     { equipmentId: { not: null } },
     { employeeId },
     { employeeQualification: { employeeId } },
+    // Training: own certificates, sessions the employee is enrolled in, shared course materials; staff verifiers see all records.
+    { trainingRecord: { employeeId } },
+    { trainingSession: { enrollments: { some: { employeeId } } } },
+    { trainingCourseId: { not: null } },
+    { maintenanceRecordId: { not: null } },
+    ...(user.role === "MANAGER" ? [{ trainingRecordId: { not: null } }, { trainingSessionId: { not: null } }] : []),
   ];
   return {
     organizationId,

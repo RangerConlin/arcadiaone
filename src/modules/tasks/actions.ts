@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { audit, userActor } from "@/modules/audit/service";
+import { notifyTaskAssigned } from "@/modules/notifications/events";
 import { canManageTask, requireTaskAccess } from "./authorization";
 import { taskInput, taskSchema } from "./validation";
 
@@ -45,12 +48,14 @@ export async function createTask(formData: FormData) {
         completedAt: data.status === "COMPLETED" ? new Date() : null,
       }});
       await tx.taskActivity.create({ data: { organizationId: actor.organizationId, taskId: created.id, userId: actor.id, type: "CREATED" } });
+      await audit.record(tx, { organizationId: actor.organizationId, actor: userActor(actor), action: AUDIT_ACTIONS.taskCreated, entityType: "Task", entityId: created.id, summary: `Task "${created.title}" created`, metadata: { projectId: created.projectId, assignedToEmployeeId: created.assignedToEmployeeId, dueDate: created.dueDate } });
       return created;
     });
     taskId = task.id;
   } catch (error) {
     fail("/tasks/new", error instanceof Error ? error.message : "Task could not be created.");
   }
+  if (data.assignedToEmployeeId) await notifyTaskAssigned({ organizationId: actor.organizationId, taskId, actorUserId: actor.id });
   redirect(`/tasks/${taskId}?success=Task created.`);
 }
 
@@ -82,8 +87,18 @@ export async function updateTask(formData: FormData) {
       if (existing.dueDate?.getTime() !== data.dueDate?.getTime()) events.push({ type: "DUE_DATE_CHANGED" });
       if (!events.length) events.push({ type: "UPDATED" });
       await tx.taskActivity.createMany({ data: events.map((event) => ({ ...event, organizationId: actor.organizationId, taskId: id, userId: actor.id })) });
+      const auditBase = { organizationId: actor.organizationId, actor: userActor(actor), entityType: "Task" as const, entityId: id };
+      if (existing.assignedToEmployeeId !== data.assignedToEmployeeId) {
+        await audit.record(tx, { ...auditBase, action: AUDIT_ACTIONS.taskReassigned, summary: `Task "${data.title}" reassigned`, changes: [{ field: "assignedToEmployeeId", from: existing.assignedToEmployeeId, to: data.assignedToEmployeeId }] });
+      }
+      if (existing.status !== "COMPLETED" && data.status === "COMPLETED") {
+        await audit.record(tx, { ...auditBase, action: AUDIT_ACTIONS.taskCompleted, summary: `Task "${data.title}" completed`, changes: [{ field: "status", from: existing.status, to: data.status }] });
+      }
     });
   } catch (error) { fail(`/tasks/${id}`, error instanceof Error ? error.message : "Task could not be updated."); }
+  if (data.assignedToEmployeeId && data.assignedToEmployeeId !== existing.assignedToEmployeeId) {
+    await notifyTaskAssigned({ organizationId: actor.organizationId, taskId: id, actorUserId: actor.id });
+  }
   redirect(`/tasks/${id}?success=Task updated.`);
 }
 

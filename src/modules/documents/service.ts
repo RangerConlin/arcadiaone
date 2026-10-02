@@ -1,4 +1,6 @@
 import "server-only";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { audit, userActor } from "@/modules/audit/service";
 import type { AuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { documentStorage } from "./storage";
@@ -7,7 +9,7 @@ import { projectVisibilityWhere } from "@/modules/projects/authorization";
 import { taskVisibilityWhere } from "@/modules/tasks/authorization";
 import { clientVisibilityWhere } from "@/modules/clients/authorization";
 
-export const relationFields = ["employeeId","employeeQualificationId","projectId","taskId","clientId","rentalId","equipmentId"] as const;
+export const relationFields = ["employeeId","employeeQualificationId","projectId","taskId","clientId","rentalId","equipmentId","trainingCourseId","trainingSessionId","trainingRecordId","maintenanceRecordId"] as const;
 export type RelationField = typeof relationFields[number];
 
 export async function validateRelation(organizationId: string, field: RelationField, id: string) {
@@ -15,11 +17,13 @@ export async function validateRelation(organizationId: string, field: RelationFi
     employeeId: prisma.employee, employeeQualificationId: prisma.employeeQualification,
     projectId: prisma.project, taskId: prisma.task, clientId: prisma.client,
     rentalId: prisma.rental, equipmentId: prisma.equipment,
+    trainingCourseId: prisma.trainingCourse, trainingSessionId: prisma.trainingSession,
+    trainingRecordId: prisma.employeeTrainingRecord, maintenanceRecordId: prisma.maintenanceRecord,
   }[field] as unknown as { findFirst(args: { where: { id: string; organizationId: string }; select: { id: true } }): Promise<{id:string}|null> };
   if (!await delegate.findFirst({ where: { id, organizationId }, select: { id: true } })) throw new Error("The related record does not exist in this organization.");
 }
 
-async function validateRelationAccess(user: AuthenticatedUser, field: RelationField, id: string) {
+export async function validateRelationAccess(user: AuthenticatedUser, field: RelationField, id: string) {
   if (user.role === "ADMIN") return;
   const allowed = field === "projectId" ? await prisma.project.findFirst({where:{id,...projectVisibilityWhere(user)}})
     : field === "taskId" ? await prisma.task.findFirst({where:{id,...taskVisibilityWhere(user)}})
@@ -27,6 +31,9 @@ async function validateRelationAccess(user: AuthenticatedUser, field: RelationFi
     : field === "employeeId" ? await prisma.employee.findFirst({where:{id,organizationId:user.organizationId,OR:[{id:user.employeeId||"__none__"},{supervisorId:user.employeeId||"__none__"}]}})
     : field === "employeeQualificationId" ? await prisma.employeeQualification.findFirst({where:{id,organizationId:user.organizationId,employee:{OR:[{id:user.employeeId||"__none__"},{supervisorId:user.employeeId||"__none__"}]}}})
     : field === "rentalId" ? await prisma.rental.findFirst({where:{id,organizationId:user.organizationId}})
+    : field === "trainingRecordId" ? await prisma.employeeTrainingRecord.findFirst({where:{id,organizationId:user.organizationId,...(user.role==="MANAGER"?{}:{employeeId:user.employeeId||"__none__"})}})
+    : field === "trainingCourseId" || field === "trainingSessionId" ? (user.role==="MANAGER"?{id}:null)
+    : field === "maintenanceRecordId" ? await prisma.maintenanceRecord.findFirst({where:{id,organizationId:user.organizationId,...(user.role==="MANAGER"?{}:{createdByUserId:user.id})}})
     : await prisma.equipment.findFirst({where:{id,organizationId:user.organizationId}});
   if (!allowed) throw new Error("You do not have access to the related record.");
 }
@@ -45,6 +52,8 @@ export async function createDocument(input: { title:string; description?:string;
       await tx.document.update({where:{id:document.id},data:{currentVersionId:version.id}});
       await tx.documentRelation.create({data:{organizationId:user.organizationId,documentId:document.id,[input.relationField]:input.relationId}});
       await tx.documentActivity.create({data:{organizationId:user.organizationId,documentId:document.id,userId:user.id,type:"UPLOADED",detail:`Version 1 uploaded (${valid.filename}).`}});
+      // File names and contents are never audited beyond the title and size.
+      await audit.record(tx,{organizationId:user.organizationId,actor:userActor(user),action:AUDIT_ACTIONS.documentUploaded,entityType:"Document",entityId:document.id,summary:`Document "${document.title}" uploaded`,metadata:{sensitivity:document.sensitivity,relatedTo:input.relationField,sizeBytes:stored.sizeBytes,mimeType:valid.mimeType}});
       return document;
     });
   } catch (error) { await documentStorage.delete(stored.key); throw error; }
@@ -59,6 +68,7 @@ export async function addVersion(documentId:string,file:File,notes:string|undefi
     const version=await tx.documentVersion.create({data:{organizationId:user.organizationId,documentId,versionNumber:(latest._max.versionNumber||0)+1,originalFilename:valid.filename,storageKey:stored.key,mimeType:valid.mimeType,sizeBytes:stored.sizeBytes,checksum:valid.checksum,uploadedByUserId:user.id,notes:notes?.trim()||null}});
     await tx.document.update({where:{id:documentId},data:{currentVersionId:version.id}});
     await tx.documentActivity.create({data:{organizationId:user.organizationId,documentId,userId:user.id,type:"VERSION_UPLOADED",detail:`Version ${version.versionNumber} uploaded (${valid.filename}).`}});
+    await audit.record(tx,{organizationId:user.organizationId,actor:userActor(user),action:AUDIT_ACTIONS.documentVersionAdded,entityType:"Document",entityId:documentId,summary:`Version ${version.versionNumber} added to "${document.title}"`,metadata:{versionNumber:version.versionNumber,sensitivity:document.sensitivity,sizeBytes:stored.sizeBytes}});
     return version;
   });}catch(error){await documentStorage.delete(stored.key);throw error;}
 }

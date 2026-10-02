@@ -1,10 +1,7 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { CalendarScreen } from "@/modules/calendar/calendar-screen";
 
-export default function CalendarPage() {
-  return (
-    <PlaceholderPage
-      description="Scheduling and calendar functionality is intentionally out of scope for this pass."
-      title="Calendar"
-    />
-  );
+export const dynamic = "force-dynamic";
+
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return <CalendarScreen basePath="/calendar" params={await searchParams} />;
 }

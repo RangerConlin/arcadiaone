@@ -1,4 +1,5 @@
 import { DocumentSection } from "@/components/document-section";
+import { TrainingSection } from "@/modules/training/training-section";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink, Notice, SecondaryLink, StatusBadge } from "@/components/ui";
@@ -108,6 +109,7 @@ export default async function EmployeeProfilePage({
           </div>
         </aside>
       </section>
+      <TrainingSection employeeId={employee.id} />
       <div className="mt-5"><DocumentSection relationType="employeeId" relationId={employee.id} returnTo={`/people/${employee.id}`}/></div>
     </>
   );

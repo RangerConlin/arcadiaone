@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { canEditEmployee, requireAuthenticatedUser, requireRole } from "@/lib/auth/session";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { diffChanges } from "@/modules/audit/sanitize";
+import { audit, userActor } from "@/modules/audit/service";
 import { calculateExpirationDate } from "./status";
 import { employeeQualificationSchema, qualificationTypeSchema, requirementSchema } from "./validation";
 
@@ -11,6 +14,9 @@ const value = (data: FormData, key: string) => String(data.get(key) ?? "").trim(
 const checked = (data: FormData, key: string) => data.get(key) === "on" || data.get(key) === "true";
 const fail = (path: string, message: string): never => redirect(`${path}?error=${encodeURIComponent(message)}`);
 const message = (error: { issues: { message: string }[] }) => error.issues[0]?.message ?? "Check the form and try again.";
+
+/** Credential numbers and notes are never audited; only these fields are. */
+const QUALIFICATION_AUDIT_FIELDS = ["qualificationTypeId", "issueDate", "expirationDate", "issuingOrganization"] as const;
 
 async function requireEmployeeEditor(employeeId: string) {
   const user = await requireAuthenticatedUser();
@@ -46,7 +52,7 @@ function credentialInput(data: FormData) {
 export async function saveEmployeeQualification(data: FormData) {
   const id = value(data, "id");
   const employeeId = value(data, "employeeId");
-  await requireEmployeeEditor(employeeId);
+  const editor = await requireEmployeeEditor(employeeId);
   const path = `/people/${employeeId}/qualifications/${id || "new"}`;
   const parsed = employeeQualificationSchema.safeParse(credentialInput(data));
   if (!parsed.success) return fail(path, message(parsed.error));
@@ -67,8 +73,24 @@ export async function saveEmployeeQualification(data: FormData) {
   if (id) {
     const existing = await prisma.employeeQualification.findFirst({ where: { id, employeeId, organizationId: organization.id } });
     if (!existing) fail(`/people/${employeeId}`, "Qualification record was not found.");
-    await prisma.employeeQualification.update({ where: { id }, data: { ...payload, verificationStatus: "UNVERIFIED", verifiedAt: null, verifiedByUserId: null, verificationNote: null } });
-  } else await prisma.employeeQualification.create({ data: { ...payload, organizationId: organization.id } });
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeQualification.update({ where: { id }, data: { ...payload, verificationStatus: "UNVERIFIED", verifiedAt: null, verifiedByUserId: null, verificationNote: null } });
+      await audit.record(tx, {
+        organizationId: organization.id, actor: userActor(editor), action: AUDIT_ACTIONS.qualificationUpdated, entityType: "EmployeeQualification", entityId: id,
+        summary: `${type.name} updated for ${employee.firstName} ${employee.lastName}; resubmitted for verification`,
+        changes: diffChanges(existing, updated, QUALIFICATION_AUDIT_FIELDS), metadata: { employeeId },
+      });
+    });
+  } else {
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.employeeQualification.create({ data: { ...payload, organizationId: organization.id } });
+      await audit.record(tx, {
+        organizationId: organization.id, actor: userActor(editor), action: AUDIT_ACTIONS.qualificationAdded, entityType: "EmployeeQualification", entityId: created.id,
+        summary: `${type.name} added for ${employee.firstName} ${employee.lastName}`,
+        metadata: { employeeId, qualificationTypeId: type.id, expirationDate: created.expirationDate },
+      });
+    });
+  }
   redirect(`/people/${employeeId}?success=Qualification saved and submitted for verification.`);
 }
 
@@ -78,15 +100,29 @@ export async function reviewQualification(data: FormData) {
   const rawStatus = value(data, "status");
   if (rawStatus !== "VERIFIED" && rawStatus !== "REJECTED") fail(`/people/${employeeId}`, "Invalid review status.");
   const organization = await getCurrentOrganization();
-  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { verificationStatus: rawStatus as "VERIFIED" | "REJECTED", verifiedAt: new Date(), verifiedByUserId: user.id, verificationNote: value(data, "verificationNote") || null } });
+  const status = rawStatus as "VERIFIED" | "REJECTED";
+  await prisma.$transaction(async (tx) => {
+    const result = await tx.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { verificationStatus: status, verifiedAt: new Date(), verifiedByUserId: user.id, verificationNote: value(data, "verificationNote") || null } });
+    if (!result.count) return;
+    const held = await tx.employeeQualification.findUniqueOrThrow({ where: { id }, select: { qualificationType: { select: { name: true } } } });
+    await audit.record(tx, {
+      organizationId: organization.id, actor: userActor(user), action: status === "VERIFIED" ? AUDIT_ACTIONS.qualificationVerified : AUDIT_ACTIONS.qualificationRejected,
+      entityType: "EmployeeQualification", entityId: id, summary: `${held.qualificationType.name} ${status === "VERIFIED" ? "verified" : "rejected"}`, metadata: { employeeId },
+    });
+  });
   redirect(`/people/${employeeId}?success=Verification status updated.`);
 }
 
 export async function archiveEmployeeQualification(data: FormData) {
   const id = value(data, "id"); const employeeId = value(data, "employeeId");
-  await requireEmployeeEditor(employeeId);
+  const user = await requireEmployeeEditor(employeeId);
   const organization = await getCurrentOrganization();
-  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { archivedAt: new Date() } });
+  await prisma.$transaction(async (tx) => {
+    const result = await tx.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id, archivedAt: null }, data: { archivedAt: new Date() } });
+    if (!result.count) return;
+    const held = await tx.employeeQualification.findUniqueOrThrow({ where: { id }, select: { qualificationType: { select: { name: true } } } });
+    await audit.record(tx, { organizationId: organization.id, actor: userActor(user), action: AUDIT_ACTIONS.qualificationArchived, entityType: "EmployeeQualification", entityId: id, summary: `${held.qualificationType.name} archived`, metadata: { employeeId } });
+  });
   redirect(`/people/${employeeId}?success=Qualification archived.`);
 }
 
