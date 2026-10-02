@@ -63,10 +63,18 @@ export function Field({
 export const inputClass =
   "w-full rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] px-3 py-2 text-sm text-[color:var(--foreground)] shadow-sm focus:border-[color:var(--accent)] focus:outline-2 focus:outline-offset-1";
 
+const badgeTones: Array<[RegExp, "ok" | "info" | "warn" | "bad"]> = [
+  [/^(active|completed|verified|valid|returned|available|approved|paid)$/, "ok"],
+  [/^(in progress|planning|assigned|checked out|open|normal)$/, "info"],
+  [/^(on hold|on leave|leave|expiring soon|expiring|pending|unverified|reserved|medium|maintenance)$/, "warn"],
+  [/^(blocked|cancelled|canceled|expired|missing|overdue|terminated|high|urgent|critical|restricted|lost|damaged)$/, "bad"],
+];
+
 export function StatusBadge({ status }: { status: string }) {
-  const label = status.toLowerCase().replace("_", " ");
+  const label = status.toLowerCase().replaceAll("_", " ");
+  const tone = badgeTones.find(([pattern]) => pattern.test(label))?.[1];
   return (
-    <span className="inline-flex rounded-sm border border-[color:var(--border)] px-2 py-1 text-xs font-semibold capitalize">
+    <span className="badge" data-tone={tone}>
       {label}
     </span>
   );

@@ -20,6 +20,7 @@ export default async function DashboardPage() {
       <PageHeader
         actions={<ButtonLink href="/people/new">Add employee</ButtonLink>}
         description="A focused operational view of the ArcadiaOne foundation."
+        hero
         title="Dashboard"
       />
       <section className="grid gap-4 md:grid-cols-3">
@@ -28,10 +29,10 @@ export default async function DashboardPage() {
         <Metric label="Active positions" value={stats.positions} />
       </section>
       <section className="mt-4 grid gap-4 md:grid-cols-4">
-        <Metric label="My open tasks" value={taskStats.open} />
-        <Metric label="Due soon" value={taskStats.dueSoon} />
-        <Metric label="Overdue" value={taskStats.overdue} />
-        <Metric label="In progress" value={taskStats.inProgress} />
+        <Metric label="My open tasks" tone="brand" value={taskStats.open} />
+        <Metric label="Due soon" tone="warn" value={taskStats.dueSoon} />
+        <Metric label="Overdue" tone="bad" value={taskStats.overdue} />
+        <Metric label="In progress" tone="violet" value={taskStats.inProgress} />
       </section>
       <section className="mt-6 rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5"><div className="flex items-center justify-between"><div><h2 className="text-base font-semibold">Qualifications attention</h2><p className="mt-1 text-sm text-[color:var(--muted)]">Current organization credential issues.</p></div><SecondaryLink href="/people/qualifications">Open qualifications</SecondaryLink></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Expired" value={expired}/><Metric label="Expiring soon" value={expiring}/><Metric label="Missing required" value={missing}/><Metric label="Awaiting verification" value={unverified}/></div></section>
       <section className="mt-6">
@@ -70,11 +71,11 @@ export default async function DashboardPage() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, tone = "plain", value }: { label: string; tone?: "plain" | "brand" | "warn" | "bad" | "violet"; value: number }) {
   return (
-    <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
-      <p className="text-sm font-medium text-[color:var(--muted)]">{label}</p>
-      <p className="mt-2 text-3xl font-semibold">{value}</p>
+    <div className="metric" data-tone={tone}>
+      <p className="metric-label">{label}</p>
+      <p className="metric-value">{value}</p>
     </div>
   );
 }
