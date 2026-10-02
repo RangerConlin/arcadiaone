@@ -1,6 +1,7 @@
 import type { EmploymentStatus } from "@/generated/prisma/enums";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
+import { canViewEmployee, requireAuthenticatedUser, requireRole } from "@/lib/auth/session";
 
 export async function getDashboardStats() {
   const organization = await getCurrentOrganization();
@@ -24,7 +25,8 @@ export async function listEmployees(filters: {
   search?: string;
   status?: EmploymentStatus;
 }) {
-  const organization = await getCurrentOrganization();
+  const user = await requireRole("ADMIN", "MANAGER");
+  const organization = { id: user.organizationId };
   const search = filters.search?.trim();
 
   return prisma.employee.findMany({
@@ -54,7 +56,9 @@ export async function listEmployees(filters: {
 }
 
 export async function getEmployee(id: string) {
-  const organization = await getCurrentOrganization();
+  const user = await requireAuthenticatedUser();
+  if (!(await canViewEmployee(user, id))) return null;
+  const organization = { id: user.organizationId };
 
   return prisma.employee.findFirst({
     where: { id, organizationId: organization.id },
@@ -70,7 +74,8 @@ export async function getEmployee(id: string) {
 }
 
 export async function getEmployeeFormOptions(excludeEmployeeId?: string) {
-  const organization = await getCurrentOrganization();
+  const user = await requireRole("ADMIN", "MANAGER");
+  const organization = { id: user.organizationId };
   const [departments, positions, supervisors] = await Promise.all([
     prisma.department.findMany({
       orderBy: { name: "asc" },
@@ -136,5 +141,11 @@ export async function getPosition(id: string) {
 
   return prisma.position.findFirst({
     where: { id, organizationId: organization.id },
+    include: {
+      qualificationRequirements: {
+        include: { qualificationType: true },
+        orderBy: { qualificationType: { name: "asc" } },
+      },
+    },
   });
 }

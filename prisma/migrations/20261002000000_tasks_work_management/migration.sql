@@ -1,7 +1,4 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MANAGER', 'EMPLOYEE');
-
--- CreateEnum
 CREATE TYPE "ProjectStatus" AS ENUM ('PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
@@ -12,21 +9,6 @@ CREATE TYPE "TaskPriority" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'URGENT');
 
 -- CreateEnum
 CREATE TYPE "TaskActivityType" AS ENUM ('CREATED', 'UPDATED', 'STATUS_CHANGED', 'ASSIGNEE_CHANGED', 'DUE_DATE_CHANGED', 'COMPLETED', 'REOPENED', 'COMMENT_ADDED', 'CHECKLIST_CHANGED');
-
--- CreateTable
-CREATE TABLE "User" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "employeeId" TEXT,
-    "email" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "role" "UserRole" NOT NULL DEFAULT 'EMPLOYEE',
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
 
 -- CreateTable
 CREATE TABLE "Project" (
@@ -132,15 +114,6 @@ CREATE TABLE "TaskActivity" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_employeeId_key" ON "User"("employeeId");
-
--- CreateIndex
-CREATE INDEX "User_organizationId_role_active_idx" ON "User"("organizationId", "role", "active");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_organizationId_email_key" ON "User"("organizationId", "email");
-
--- CreateIndex
 CREATE INDEX "Project_organizationId_status_idx" ON "Project"("organizationId", "status");
 
 -- CreateIndex
@@ -181,12 +154,6 @@ CREATE INDEX "TaskComment_organizationId_taskId_createdAt_idx" ON "TaskComment"(
 
 -- CreateIndex
 CREATE INDEX "TaskActivity_organizationId_taskId_createdAt_idx" ON "TaskActivity"("organizationId", "taskId", "createdAt");
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Project" ADD CONSTRAINT "Project_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

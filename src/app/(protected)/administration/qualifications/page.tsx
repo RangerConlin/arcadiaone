@@ -1,0 +1,13 @@
+import Link from "next/link";
+import { PageHeader } from "@/components/page-header";
+import { ButtonLink, inputClass, Notice, SubmitButton } from "@/components/ui";
+import { getCurrentOrganization } from "@/lib/organization";
+import { updateQualificationSettings } from "@/modules/qualifications/actions";
+import { getQualificationTypes } from "@/modules/qualifications/data";
+export const dynamic = "force-dynamic";
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const [types, organization, query] = await Promise.all([getQualificationTypes(true), getCurrentOrganization(), searchParams]);
+  return <><PageHeader title="Qualification Types" description="Configure the credentials and capabilities your organization recognizes." actions={<ButtonLink href="/administration/qualifications/new">New qualification type</ButtonLink>} breadcrumbs={[{label:"Dashboard",href:"/"},{label:"Administration",href:"/administration"},{label:"Qualifications"}]} /><Notice message={query.success ?? query.error} tone={query.error ? "error" : "success"} />
+    <form action={updateQualificationSettings} className="mb-5 flex max-w-xl items-end gap-3 rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-4"><label className="grow text-sm font-medium">Expiring-soon warning (days)<input className={`${inputClass} mt-1`} defaultValue={organization.qualificationExpirationWarningDays} max={365} min={1} name="warningDays" type="number" /></label><SubmitButton>Save threshold</SubmitButton></form>
+    <div className="overflow-x-auto rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)]"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[color:var(--border)] text-xs uppercase text-[color:var(--muted)]"><th className="p-3">Name</th><th className="p-3">Category</th><th className="p-3">Expiration</th><th className="p-3">Usage</th><th className="p-3">State</th></tr></thead><tbody>{types.map((type)=><tr className="border-b border-[color:var(--border)] last:border-0" key={type.id}><td className="p-3 font-medium"><Link className="text-[color:var(--accent)] underline" href={`/administration/qualifications/${type.id}/edit`}>{type.name}</Link>{type.abbreviation ? ` (${type.abbreviation})` : ""}</td><td className="p-3">{type.category}</td><td className="p-3">{type.expirationBehavior.replaceAll("_"," ")}</td><td className="p-3">{type._count.employeeQualifications} held / {type._count.positionRequirements} required</td><td className="p-3">{type.active ? "Active" : "Inactive"}</td></tr>)}</tbody></table>{!types.length&&<p className="p-6 text-sm text-[color:var(--muted)]">No qualification types configured.</p>}</div></>;
+}

@@ -23,22 +23,6 @@ async function main() {
       data: { name: organizationName },
     }));
 
-  const admin = await prisma.user.upsert({
-    where: {
-      organizationId_email: {
-        organizationId: organization.id,
-        email: "admin@arcadia.local",
-      },
-    },
-    update: {},
-    create: {
-      organizationId: organization.id,
-      email: "admin@arcadia.local",
-      name: "Arcadia Administrator",
-      role: "ADMIN",
-    },
-  });
-
   if (process.env.SEED_SAMPLE_DATA === "true") {
     const operations = await prisma.department.upsert({
       where: {
@@ -90,11 +74,11 @@ async function main() {
       },
     });
 
-    await prisma.user.update({ where: { id: admin.id }, data: { employeeId: employee.id } });
+    const admin = await prisma.user.findFirst({ where: { organizationId: organization.id, role: "ADMIN" }, select: { id: true } });
     const project = await prisma.project.upsert({
       where: { organizationId_name: { organizationId: organization.id, name: "Operations Readiness" } },
       update: {},
-      create: { organizationId: organization.id, name: "Operations Readiness", description: "Sample project for local task workflows.", managerUserId: admin.id },
+      create: { organizationId: organization.id, name: "Operations Readiness", description: "Sample project for local task workflows.", managerUserId: admin?.id },
     });
     await prisma.projectMember.upsert({ where: { projectId_employeeId: { projectId: project.id, employeeId: employee.id } }, update: {}, create: { projectId: project.id, employeeId: employee.id, roleName: "Coordinator" } });
     await prisma.projectMilestone.upsert({ where: { projectId_name: { projectId: project.id, name: "Initial review" } }, update: {}, create: { projectId: project.id, name: "Initial review" } });

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireCurrentUser } from "@/lib/auth";
+import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { canManageTask, requireTaskAccess } from "./authorization";
 import { taskInput, taskSchema } from "./validation";
@@ -30,7 +30,7 @@ async function validateRelations(data: ReturnType<typeof taskSchema.parse>, orga
 }
 
 export async function createTask(formData: FormData) {
-  const actor = await requireCurrentUser();
+  const actor = await requireAuthenticatedUser();
   if (actor.role === "EMPLOYEE") fail("/tasks/new", "You do not have permission to create tasks.");
   const parsed = taskSchema.safeParse(taskInput(formData));
   if (!parsed.success) fail("/tasks/new", parsed.error.issues[0]?.message ?? "Invalid task.");
@@ -55,7 +55,7 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTask(formData: FormData) {
-  const actor = await requireCurrentUser();
+  const actor = await requireAuthenticatedUser();
   const id = text(formData, "id");
   const existing = await requireTaskAccess(id, actor);
   const parsed = taskSchema.safeParse(taskInput(formData));
@@ -88,7 +88,7 @@ export async function updateTask(formData: FormData) {
 }
 
 export async function addChecklistItem(formData: FormData) {
-  const actor = await requireCurrentUser(); const taskId = text(formData, "taskId"); const itemText = text(formData, "text");
+  const actor = await requireAuthenticatedUser(); const taskId = text(formData, "taskId"); const itemText = text(formData, "text");
   await requireTaskAccess(taskId, actor); if (!itemText) fail(`/tasks/${taskId}`, "Checklist text is required.");
   await prisma.$transaction(async (tx) => {
     await tx.taskChecklistItem.create({ data: { taskId, text: itemText.slice(0, 300) } });
@@ -98,7 +98,7 @@ export async function addChecklistItem(formData: FormData) {
 }
 
 export async function toggleChecklistItem(formData: FormData) {
-  const actor = await requireCurrentUser(); const taskId = text(formData, "taskId"); const id = text(formData, "id");
+  const actor = await requireAuthenticatedUser(); const taskId = text(formData, "taskId"); const id = text(formData, "id");
   await requireTaskAccess(taskId, actor);
   const item = await prisma.taskChecklistItem.findFirst({ where: { id, taskId, task: { organizationId: actor.organizationId } } });
   if (!item) fail(`/tasks/${taskId}`, "Checklist item was not found.");
@@ -106,7 +106,7 @@ export async function toggleChecklistItem(formData: FormData) {
 }
 
 export async function addTaskComment(formData: FormData) {
-  const actor = await requireCurrentUser(); const taskId = text(formData, "taskId"); const content = text(formData, "content");
+  const actor = await requireAuthenticatedUser(); const taskId = text(formData, "taskId"); const content = text(formData, "content");
   await requireTaskAccess(taskId, actor); if (!content) fail(`/tasks/${taskId}`, "Comment cannot be empty.");
   await prisma.$transaction(async (tx) => {
     await tx.taskComment.create({ data: { organizationId: actor.organizationId, taskId, userId: actor.id, content: content.slice(0, 5000) } });
