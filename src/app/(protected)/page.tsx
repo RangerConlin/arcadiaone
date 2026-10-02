@@ -1,11 +1,16 @@
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink, SecondaryLink } from "@/components/ui";
 import { getDashboardStats } from "@/modules/people/data";
+import { getQualificationsOverview } from "@/modules/qualifications/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const stats = await getDashboardStats();
+  const [stats, qualifications] = await Promise.all([getDashboardStats(), getQualificationsOverview()]);
+  const expired = qualifications.credentials.filter((item) => item.status === "EXPIRED").length;
+  const expiring = qualifications.credentials.filter((item) => item.status === "EXPIRING_SOON").length;
+  const missing = qualifications.requirements.filter((item) => item.requirement.status === "MISSING").length;
+  const unverified = qualifications.credentials.filter((item) => item.qualification.verificationStatus === "UNVERIFIED").length;
 
   return (
     <>
@@ -19,6 +24,7 @@ export default async function DashboardPage() {
         <Metric label="Active departments" value={stats.departments} />
         <Metric label="Active positions" value={stats.positions} />
       </section>
+      <section className="mt-6 rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5"><div className="flex items-center justify-between"><div><h2 className="text-base font-semibold">Qualifications attention</h2><p className="mt-1 text-sm text-[color:var(--muted)]">Current organization credential issues.</p></div><SecondaryLink href="/people/qualifications">Open qualifications</SecondaryLink></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Expired" value={expired}/><Metric label="Expiring soon" value={expiring}/><Metric label="Missing required" value={missing}/><Metric label="Awaiting verification" value={unverified}/></div></section>
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
           <h2 className="text-base font-semibold">People module</h2>

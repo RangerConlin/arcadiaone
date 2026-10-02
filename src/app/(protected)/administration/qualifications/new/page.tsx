@@ -1,0 +1,2 @@
+import { PageHeader } from "@/components/page-header"; import { QualificationTypeForm } from "@/modules/qualifications/forms";
+export default async function Page({searchParams}:{searchParams:Promise<{error?:string}>}) { const query=await searchParams; return <><PageHeader title="New Qualification Type" breadcrumbs={[{label:"Administration",href:"/administration"},{label:"Qualifications",href:"/administration/qualifications"},{label:"New"}]} /><QualificationTypeForm error={query.error}/></>; }

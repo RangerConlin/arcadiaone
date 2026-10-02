@@ -141,5 +141,11 @@ export async function getPosition(id: string) {
 
   return prisma.position.findFirst({
     where: { id, organizationId: organization.id },
+    include: {
+      qualificationRequirements: {
+        include: { qualificationType: true },
+        orderBy: { qualificationType: { name: "asc" } },
+      },
+    },
   });
 }

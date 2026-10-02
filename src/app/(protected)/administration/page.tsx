@@ -16,6 +16,11 @@ export default function AdministrationPage() {
           title="Departments"
         />
         <AdminCard
+          description="Define qualification types, expiration rules, and organization warning settings."
+          href="/administration/qualifications"
+          title="Qualifications"
+        />
+        <AdminCard
           description="Create, edit, activate, and deactivate job positions."
           href="/administration/positions"
           title="Positions"

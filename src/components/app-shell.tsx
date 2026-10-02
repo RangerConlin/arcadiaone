@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from "@/lib/auth/session";
 const commonNavigation = [
   { label: "Dashboard", href: "/" },
   { label: "People", href: "/people" },
+  { label: "Qualifications", href: "/people/qualifications" },
   { label: "Projects", href: "/projects" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
