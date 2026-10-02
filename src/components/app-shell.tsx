@@ -7,6 +7,7 @@ const commonNavigation = [
   { label: "People", href: "/people" },
   { label: "Qualifications", href: "/people/qualifications" },
   { label: "Projects", href: "/projects" },
+  { label: "Tasks", href: "/tasks" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
 ];

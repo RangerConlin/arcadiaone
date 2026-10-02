@@ -4,9 +4,9 @@ ArcadiaOne is an employee-management and project-management web application for 
 
 ## Status
 
-This repository contains the production-oriented ArcadiaOne application foundation. The People module supports employee directory, employee profile, employee create/edit, department administration, position administration, qualification management, and role-based user administration.
+This repository contains the production-oriented ArcadiaOne application foundation. The People module supports employee directory, employee profile, employee create/edit, department administration, position administration, qualification management, role-based user administration, and straightforward task/work management.
 
-The following areas are intentionally not implemented yet: training/LMS, projects, tasks, scheduling, general document management, timekeeping, payroll, SSO/MFA, advanced permissions, notifications, external integrations, and reporting engine features.
+The following areas are intentionally not implemented yet: training/LMS, projects (beyond task linkage), scheduling, general document management, timekeeping, payroll, SSO/MFA, advanced permissions, notifications, external integrations, and reporting engine features.
 
 ## Technology
 
@@ -36,6 +36,9 @@ The database currently includes:
 - `User`
 - `Session`
 - `SystemHealth`
+- `User`, with organization role and optional employee identity
+- `Project`, `ProjectMember`, and `ProjectMilestone`
+- `Task`, `TaskChecklistItem`, `TaskComment`, and `TaskActivity`
 
 Employees belong to an organization, may belong to a department and position, and may optionally reference another employee as their supervisor. Employee numbers are unique within an organization when provided.
 
@@ -60,7 +63,52 @@ Implemented:
 - Self-service password change
 - Database-backed `/api/health`
 
-Placeholder navigation exists for Projects, Calendar, and Reports.
+- Database-backed task list with search, status/priority/project/due filters, and pagination
+- Personal assigned, due-soon, overdue, in-progress, and completed task views
+- Standalone and project-linked task creation
+- Task details, status/assignment/dates, full subtasks, lightweight checklist items, comments, and activity
+- Project task filters and milestone completion progress
+- Live task metrics on the dashboard
+
+Calendar and Reports remain placeholders.
+
+## Task Work Management
+
+`Task.projectId` is nullable by design. Standalone work (for example, a license
+renewal or vendor call) has the same assignment, priority, status, and due-date
+capabilities as project work. Project tasks can additionally reference a
+milestone. A task has one optional primary `Employee` assignee; an employee does
+not need a user account to be assigned.
+
+Subtasks are full task records in a one-level self-relation, so each may have its
+own assignee, status, and dates. The server rejects self/circular relationships,
+nested subtask parents, cross-organization parents, and parents from a different
+project. Checklist items are deliberately smaller completion steps without an
+assignee or dates.
+
+Comments are plain text, unthreaded, and organization-scoped. Important changes
+(creation, status/completion/reopening, assignment, due date, checklist, and
+comments) append lightweight activity records for display and future notification
+integration; this is not an event-sourcing system.
+
+Task authorization is enforced in server queries and mutations:
+
+- **ADMIN** can view and manage all tasks in their organization.
+- **MANAGER** can see assigned/created work and project work for projects they
+  manage or belong to; they can manage work they created or projects they manage.
+- **EMPLOYEE** can see assigned work and projects where they are a member, update
+  their assigned task's progress/status, use checklists, and comment. They cannot
+  reassign or move tasks.
+
+All related employee, project, milestone, parent, comment, and task lookups are
+scoped to the server-resolved organization. Client-supplied organization IDs are
+never accepted. The acting user comes from the authenticated server-side session.
+
+Overdue is computed at query/display time for an open task whose due date is in
+the past. Completed and cancelled tasks are never overdue. Due soon means due
+from now through seven days; the centralized `DUE_SOON_DAYS` constant is ready
+for future organization-level configuration. Dates stay on `Task` so a future
+calendar can consume them without duplicated calendar rows.
 
 ## Qualifications architecture
 
@@ -112,6 +160,13 @@ Run linting:
 
 ```bash
 npm run lint
+```
+
+Run task behavior tests and TypeScript validation:
+
+```bash
+npm test
+npm run typecheck
 ```
 
 Create a production build:

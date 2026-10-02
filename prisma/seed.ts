@@ -54,7 +54,7 @@ async function main() {
       },
     });
 
-    await prisma.employee.upsert({
+    const employee = await prisma.employee.upsert({
       where: {
         organizationId_employeeNumber: {
           organizationId: organization.id,
@@ -73,6 +73,15 @@ async function main() {
         employmentStatus: "ACTIVE",
       },
     });
+
+    const admin = await prisma.user.findFirst({ where: { organizationId: organization.id, role: "ADMIN" }, select: { id: true } });
+    const project = await prisma.project.upsert({
+      where: { organizationId_name: { organizationId: organization.id, name: "Operations Readiness" } },
+      update: {},
+      create: { organizationId: organization.id, name: "Operations Readiness", description: "Sample project for local task workflows.", managerUserId: admin?.id },
+    });
+    await prisma.projectMember.upsert({ where: { projectId_employeeId: { projectId: project.id, employeeId: employee.id } }, update: {}, create: { projectId: project.id, employeeId: employee.id, roleName: "Coordinator" } });
+    await prisma.projectMilestone.upsert({ where: { projectId_name: { projectId: project.id, name: "Initial review" } }, update: {}, create: { projectId: project.id, name: "Initial review" } });
   }
 }
 
