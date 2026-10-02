@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   if (await getAuthenticatedUser()) redirect("/");
   const query = await searchParams;
-  return <main className="flex min-h-screen items-center justify-center bg-[color:var(--background)] px-4">
+  return <main className="flex min-h-screen items-center justify-center px-4">
     <section className="w-full max-w-md rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-8 shadow-xl">
       <h1 className="text-3xl font-semibold">Sign in to ArcadiaOne</h1>
       <p className="mt-2 text-sm text-[color:var(--muted)]">Use your organization account to continue.</p>

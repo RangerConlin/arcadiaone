@@ -4,15 +4,17 @@ export function PageHeader({
   actions,
   breadcrumbs,
   description,
+  hero,
   title,
 }: {
   actions?: React.ReactNode;
   breadcrumbs?: Array<{ href?: string; label: string }>;
   description?: string;
+  hero?: boolean;
   title: string;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 border-b border-[color:var(--border)] pb-5 lg:flex-row lg:items-end lg:justify-between">
+    <div className={["page-header flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between", hero ? "page-hero" : ""].join(" ")}>
       <div>
         {breadcrumbs ? (
           <nav className="mb-2 flex flex-wrap gap-2 text-sm text-[color:var(--muted)]">
@@ -30,7 +32,7 @@ export function PageHeader({
             ))}
           </nav>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">
+        <h1 className="page-title">
           {title}
         </h1>
         {description ? (
