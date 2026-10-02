@@ -352,3 +352,29 @@ Uploads default to 25 MB (override with `DOCUMENT_MAX_UPLOAD_BYTES`) and accept 
 Authorization is centralized and always organization-scoped. Administrators have broad access. Managers and employees require access through an explicit related business record, employees can see their own employee/qualification evidence, and restricted documents require elevated access. Metadata changes, uploads, versions, archive, and restore are recorded as document activity. Existing qualification file rows are retained by the migration and promoted to shared documents using their existing storage key.
 
 For disaster recovery, snapshot the database and `document-data` volume at the same maintenance point, periodically test restores, and treat both as confidential. During a future S3 migration, copy objects by opaque `storageKey`, verify size/checksum, switch the storage adapter, and only retire the volume after authorized historical downloads have been validated.
+
+## Invoices and e-signatures
+
+### Invoice architecture
+
+Invoices are organization-scoped billing records, not ledger entries. A client is required while project and rental links are optional. Drafts permit structural edits; issuing recalculates totals, allocates a number inside the same database transaction, freezes lines, and generates a PDF from the invoice's historical values. Statuses are `DRAFT`, `ISSUED`, `SENT`, `PARTIALLY_PAID`, `PAID`, and `VOID`; `OVERDUE` is presented as a derived state when a non-draft unpaid invoice is past due.
+
+Organization settings contain the invoice prefix, concurrency-safe next sequence, default ISO 4217 currency, payment terms, footer, and billing address. Numbers are allocated with an atomic PostgreSQL `UPDATE … RETURNING`, never row counts. Each line uses PostgreSQL `Decimal` values. Central calculations multiply quantity and unit price, subtract the fixed line discount, calculate the configured percentage tax on the discounted line, and round to cents. Tests cover fractional quantities, discounts, taxes, invalid discounts, and overdue derivation.
+
+Rental items can be copied into draft lines with source metadata; they are snapshots and later rental edits cannot rewrite them. Project selection is optional and no time billing is implied. Client, project, and rental workspaces link to the same invoices. Payments are lightweight records only—no processor or card/bank credentials. A payment cannot exceed the remaining balance. It recalculates paid/balance values and moves an invoice to partially paid or paid. Administrator corrections retain the original payment, mark it corrected with a reason/time, and recalculate rather than deleting history.
+
+Generated PDFs are ordinary protected `Document`/`DocumentVersion` records in shared object storage. Issued documents are not regenerated in place; draft generation is allowed and issuing preserves a distinct immutable artifact. “Mark sent” records a manual action and does not claim email delivery. An invoice PDF may optionally enter the shared signature workflow.
+
+### Signature architecture
+
+`SignatureProvider` isolates create, send, status, cancel, completed-document, and audit operations. The initial `LOCAL` provider is explicitly a development workflow adapter and makes no legal-enforceability claim. Provider type, API URL/key, sender identity, webhook secret, and expiration are environment configuration; credentials are never stored in database settings. A production provider can implement the interface without provider-specific states leaking into application records.
+
+Every request locks a specific `DocumentVersion` and supports ordered employee, client-contact, or manual external signers. Canonical request and signer statuses are mapped independently of provider vocabulary. Optional page-coordinate signature fields exist for providers that require placement; hosted provider preparation should otherwise be preferred.
+
+The webhook endpoint requires an HMAC-SHA256 signature in `x-arcadia-signature`, rejects unsigned input, maps only known canonical states, and uses the provider event ID as an idempotency key. On completion the provider result is stored as a **new related document**, with its own version/checksum and copied business relations; it never overwrites the unsigned source. Provider event IDs, signer timestamps, completion/decline timestamps, audit reference, and metadata provide a practical audit trail.
+
+### Security and future portal use
+
+All reads and mutations derive organization identity from the authenticated session and re-check linked IDs server-side. Financial authorization is centralized: administrators have complete access, managers see drafts they created and invoices for projects they manage, and employees have no general financial access. Signature sending is a distinct permission from document viewing. Document downloads continue through protected document authorization. Issued invoices, payments, exact unsigned versions, and signed results use restrictive foreign-key deletion behavior.
+
+The data model is ready for a future portal to grant an external identity access to selected invoices or signature requests, but this release creates no public invoice URL or client portal. It intentionally omits accounting ledgers, payment processing, tax jurisdiction logic, currency conversion, recurring billing, and email synchronization.

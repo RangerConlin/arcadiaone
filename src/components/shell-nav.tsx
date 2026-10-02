@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type NavIcon = "home" | "people" | "projects" | "clients" | "rentals" | "tasks" | "calendar" | "reports" | "documents" | "admin";
+export type NavIcon = "home" | "people" | "projects" | "clients" | "rentals" | "tasks" | "calendar" | "reports" | "documents" | "invoices" | "signatures" | "admin";
 export type NavSub = { label: string; href: string };
 export type NavModule = { id: string; label: string; railLabel?: string; icon: NavIcon; href: string; prefix: string; subs: NavSub[] };
 
@@ -17,6 +17,8 @@ const icons: Record<NavIcon, string> = {
   calendar: "M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
   reports: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   documents: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6",
+  invoices: "M4 4h16v16H4zM8 8h8M8 12h8M8 16h5",
+  signatures: "M4 20c4-5 7-8 12-12l3 3c-4 5-7 8-12 12zM14 6l3 3",
   admin: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M16 4v4M10 10v4M18 16v4",
 };
 
