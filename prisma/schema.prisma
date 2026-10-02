@@ -13,18 +13,27 @@ model SystemHealth {
 }
 
 model Organization {
-  id                String             @id @default(uuid())
-  name              String             @unique
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  departments       Department[]
-  positions         Position[]
-  employees         Employee[]
-  projects          Project[]
-  projectMembers    ProjectMember[]
-  projectRoles      ProjectRole[]
-  projectMilestones ProjectMilestone[]
-  projectActivities ProjectActivity[]
+  id                                 String                             @id @default(uuid())
+  name                               String                             @unique
+  createdAt                          DateTime                           @default(now())
+  updatedAt                          DateTime                           @updatedAt
+  departments                        Department[]
+  positions                          Position[]
+  employees                          Employee[]
+  qualificationTypes                 QualificationType[]
+  employeeQualifications             EmployeeQualification[]
+  qualificationDocuments             QualificationDocument[]
+  positionQualificationRequirements  PositionQualificationRequirement[]
+  users                              User[]
+  projects                           Project[]
+  projectMembers                     ProjectMember[]
+  projectRoles                       ProjectRole[]
+  projectMilestones                  ProjectMilestone[]
+  projectActivities                  ProjectActivity[]
+  tasks                              Task[]
+  taskComments                       TaskComment[]
+  taskActivities                     TaskActivity[]
+  qualificationExpirationWarningDays Int                                @default(60)
 }
 
 model Department {
@@ -43,22 +52,23 @@ model Department {
 }
 
 model Position {
-  id             String       @id @default(uuid())
-  organizationId String
-  title          String
-  description    String?
-  active         Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employees      Employee[]
+  id                        String                             @id @default(uuid())
+  organizationId            String
+  title                     String
+  description               String?
+  active                    Boolean                            @default(true)
+  createdAt                 DateTime                           @default(now())
+  updatedAt                 DateTime                           @updatedAt
+  organization              Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employees                 Employee[]
+  qualificationRequirements PositionQualificationRequirement[]
 
   @@unique([organizationId, title])
   @@index([organizationId, active])
 }
 
 model Employee {
-  id                 String           @id @default(uuid())
+  id                 String                  @id @default(uuid())
   organizationId     String
   employeeNumber     String?
   firstName          String
@@ -73,19 +83,22 @@ model Employee {
   departmentId       String?
   positionId         String?
   supervisorId       String?
-  employmentStatus   EmploymentStatus @default(ACTIVE)
+  employmentStatus   EmploymentStatus        @default(ACTIVE)
   hireDate           DateTime?
   separationDate     DateTime?
   notes              String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  department         Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  position           Position?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  supervisor         Employee?        @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
-  directReports      Employee[]       @relation("EmployeeSupervisor")
-  managedProjects    Project[]        @relation("ProjectManager")
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  department         Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position           Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  supervisor         Employee?               @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  directReports      Employee[]              @relation("EmployeeSupervisor")
+  qualifications     EmployeeQualification[]
+  user               User?
+  managedProjects    Project[]               @relation("ProjectManager")
   projectMemberships ProjectMember[]
+  assignedTasks      Task[]                  @relation("TaskAssignee")
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, employmentStatus])
@@ -117,26 +130,12 @@ model Project {
   members          ProjectMember[]
   milestones       ProjectMilestone[]
   activities       ProjectActivity[]
+  tasks            Task[]
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
   @@index([organizationId, projectManagerId])
   @@index([organizationId, name])
-}
-
-model ProjectRole {
-  id             String          @id @default(uuid())
-  organizationId String
-  name           String
-  description    String?
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  members        ProjectMember[]
-
-  @@unique([organizationId, name])
-  @@index([organizationId, active])
 }
 
 model ProjectMember {
@@ -174,9 +173,25 @@ model ProjectMilestone {
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks          Task[]
 
   @@index([organizationId, projectId, sortOrder])
   @@index([organizationId, status, targetDate])
+}
+
+model ProjectRole {
+  id             String          @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members        ProjectMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
 }
 
 model ProjectActivity {
@@ -192,11 +207,232 @@ model ProjectActivity {
   @@index([organizationId, projectId, createdAt])
 }
 
-enum EmploymentStatus {
-  ACTIVE
-  INACTIVE
-  LEAVE
-  TERMINATED
+model Task {
+  id                   String              @id @default(uuid())
+  organizationId       String
+  projectId            String?
+  parentTaskId         String?
+  milestoneId          String?
+  title                String
+  description          String?
+  status               TaskStatus          @default(TODO)
+  priority             TaskPriority        @default(NORMAL)
+  dueDate              DateTime?
+  startDate            DateTime?
+  completedAt          DateTime?
+  createdByUserId      String
+  assignedToEmployeeId String?
+  assignedByUserId     String?
+  sortOrder            Int                 @default(0)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project              Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestone            ProjectMilestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parentTask           Task?               @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks             Task[]              @relation("TaskSubtasks")
+  createdBy            User                @relation("TaskCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  assignedTo           Employee?           @relation("TaskAssignee", fields: [assignedToEmployeeId], references: [id], onDelete: SetNull)
+  assignedBy           User?               @relation("TaskAssigner", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  checklistItems       TaskChecklistItem[]
+  comments             TaskComment[]
+  activities           TaskActivity[]
+
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, assignedToEmployeeId, status])
+  @@index([projectId, status])
+  @@index([milestoneId])
+  @@index([parentTaskId])
+}
+
+model TaskChecklistItem {
+  id        String   @id @default(uuid())
+  taskId    String
+  text      String
+  completed Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, sortOrder])
+}
+
+model TaskComment {
+  id             String       @id @default(uuid())
+  organizationId String
+  taskId         String
+  userId         String
+  content        String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, taskId, createdAt])
+}
+
+model TaskActivity {
+  id             String           @id @default(uuid())
+  organizationId String
+  taskId         String
+  userId         String
+  type           TaskActivityType
+  detail         String?
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  task           Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, taskId, createdAt])
+}
+
+model QualificationType {
+  id                       String                             @id @default(uuid())
+  organizationId           String
+  name                     String
+  abbreviation             String?
+  description              String?
+  category                 QualificationCategory
+  issuingOrganization      String?
+  expirationBehavior       ExpirationBehavior                 @default(DOES_NOT_EXPIRE)
+  defaultValidityMonths    Int?
+  credentialNumberExpected Boolean                            @default(false)
+  documentExpected         Boolean                            @default(false)
+  active                   Boolean                            @default(true)
+  createdAt                DateTime                           @default(now())
+  updatedAt                DateTime                           @updatedAt
+  organization             Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employeeQualifications   EmployeeQualification[]
+  positionRequirements     PositionQualificationRequirement[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+model EmployeeQualification {
+  id                  String                  @id @default(uuid())
+  organizationId      String
+  employeeId          String
+  qualificationTypeId String
+  credentialNumber    String?
+  issuingOrganization String?
+  issueDate           DateTime?
+  expirationDate      DateTime?
+  verificationStatus  VerificationStatus      @default(UNVERIFIED)
+  verifiedAt          DateTime?
+  verifiedByUserId    String?
+  verificationNote    String?
+  notes               String?
+  archivedAt          DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  qualificationType   QualificationType       @relation(fields: [qualificationTypeId], references: [id], onDelete: Restrict)
+  documents           QualificationDocument[]
+
+  @@index([organizationId, expirationDate])
+  @@index([employeeId, qualificationTypeId])
+  @@index([organizationId, verificationStatus])
+}
+
+model QualificationDocument {
+  id                      String                @id @default(uuid())
+  organizationId          String
+  employeeQualificationId String
+  originalFilename        String
+  storageKey              String
+  mimeType                String
+  sizeBytes               Int
+  uploadedAt              DateTime              @default(now())
+  uploadedByUserId        String?
+  organization            Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employeeQualification   EmployeeQualification @relation(fields: [employeeQualificationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, storageKey])
+  @@index([employeeQualificationId])
+}
+
+model PositionQualificationRequirement {
+  id                  String            @id @default(uuid())
+  organizationId      String
+  positionId          String
+  qualificationTypeId String
+  required            Boolean           @default(true)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  qualificationType   QualificationType @relation(fields: [qualificationTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([positionId, qualificationTypeId])
+  @@index([organizationId, qualificationTypeId])
+}
+
+enum QualificationCategory {
+  CERTIFICATION
+  LICENSE
+  QUALIFICATION
+  AUTHORIZATION
+  INTERNAL
+}
+
+enum ExpirationBehavior {
+  DOES_NOT_EXPIRE
+  TRACKED
+  CALCULATED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  organizationId     String
+  employeeId         String?        @unique
+  email              String
+  passwordHash       String
+  role               UserRole       @default(EMPLOYEE)
+  active             Boolean        @default(true)
+  mustChangePassword Boolean        @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee           Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  sessions           Session[]
+  createdTasks       Task[]         @relation("TaskCreator")
+  assignedTasks      Task[]         @relation("TaskAssigner")
+  taskComments       TaskComment[]
+  taskActivities     TaskActivity[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, active])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
 }
 
 enum ProjectStatus {
@@ -225,4 +461,38 @@ enum MilestoneStatus {
 enum ProjectActivityType {
   NOTE
   SYSTEM
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TaskActivityType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  ASSIGNEE_CHANGED
+  DUE_DATE_CHANGED
+  COMPLETED
+  REOPENED
+  COMMENT_ADDED
+  CHECKLIST_CHANGED
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+  LEAVE
+  TERMINATED
 }

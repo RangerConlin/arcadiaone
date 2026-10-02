@@ -7,11 +7,15 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "tsx --test src/modules/tasks/*.test.ts",
+    "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "test": "tsx --test src/lib/auth/password.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
