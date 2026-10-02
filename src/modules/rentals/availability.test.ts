@@ -1,0 +1,5 @@
+import test from "node:test"; import assert from "node:assert/strict";
+import { isOverdue, operationallyAvailable, rangesOverlap, validatesRange } from "./availability";
+test("half-open rental ranges detect genuine overlaps",()=>{const d=(x:string)=>new Date(x);assert.equal(rangesOverlap(d("2026-10-10"),d("2026-10-12"),d("2026-10-11"),d("2026-10-14")),true);assert.equal(rangesOverlap(d("2026-10-10"),d("2026-10-12"),d("2026-10-12"),d("2026-10-14")),false)});
+test("range and operational availability rules",()=>{assert.equal(validatesRange(new Date("2026-01-01"),new Date("2026-01-02")),true);assert.equal(operationallyAvailable({active:true,rentable:false,status:"AVAILABLE"}),false);assert.equal(operationallyAvailable({active:true,rentable:true,status:"MAINTENANCE"}),false)});
+test("overdue is derived and terminal rentals are excluded",()=>{const now=new Date("2026-10-10");assert.equal(isOverdue({reservationEnd:new Date("2026-10-09"),status:"CHECKED_OUT"},now),true);assert.equal(isOverdue({reservationEnd:new Date("2026-10-09"),status:"CLOSED"},now),false)});

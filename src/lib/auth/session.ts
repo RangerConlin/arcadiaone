@@ -20,7 +20,7 @@ export function normalizeEmail(email: string) { return email.trim().toLowerCase(
 
 export type AuthenticatedUser = {
   id: string; organizationId: string; employeeId: string | null; email: string;
-  role: UserRole; mustChangePassword: boolean; displayName: string;
+  role: UserRole; mustChangePassword?: boolean; displayName: string;
 };
 
 export async function createSession(userId: string) {
