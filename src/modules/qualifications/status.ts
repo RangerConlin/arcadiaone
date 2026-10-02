@@ -49,8 +49,8 @@ type HeldQualification = {
 
 type Requirement = { qualificationTypeId: string; required: boolean };
 
-export function evaluateRequirements(
-  requirements: Requirement[],
+export function evaluateRequirements<R extends Requirement>(
+  requirements: R[],
   held: HeldQualification[],
   warningDays: number,
   now = new Date(),

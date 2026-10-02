@@ -50,11 +50,40 @@ export async function getQualificationsOverview(filters: Record<string, string |
     },
     include: {
       department: true, position: { include: { qualificationRequirements: { include: { qualificationType: true } } } },
-      qualifications: { where: { archivedAt: null, ...(filters.qualification ? { qualificationTypeId: filters.qualification } : {}) }, include: { qualificationType: true } },
+      // Always load every held qualification used by requirement evaluation. Applying
+      // the qualification filter here made unrelated requirements appear missing.
+      qualifications: {
+        where: { archivedAt: null },
+        include: { qualificationType: true },
+      },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
-  const credentials = employees.flatMap((employee) => employee.qualifications.map((q) => ({ employee, qualification: q, status: getQualificationStatus(q.expirationDate, warningDays) })));
-  const requirements = employees.flatMap((employee) => evaluateRequirements(employee.position?.qualificationRequirements ?? [], employee.qualifications, warningDays).filter((r) => r.required).map((r) => ({ employee, requirement: r })));
+  const allCredentials = employees.flatMap((employee) =>
+    employee.qualifications.map((qualification) => ({
+      employee,
+      qualification,
+      status: getQualificationStatus(qualification.expirationDate, warningDays),
+    })),
+  );
+  const credentials = allCredentials.filter(({ qualification, status }) =>
+    (!filters.qualification || qualification.qualificationTypeId === filters.qualification) &&
+    (!filters.status || status === filters.status) &&
+    (!filters.verification || qualification.verificationStatus === filters.verification),
+  );
+  const requirements = employees.flatMap((employee) =>
+    evaluateRequirements(
+      employee.position?.qualificationRequirements ?? [],
+      employee.qualifications,
+      warningDays,
+    )
+      .filter(
+        (requirement) =>
+          requirement.required &&
+          (!filters.qualification ||
+            requirement.qualificationTypeId === filters.qualification),
+      )
+      .map((requirement) => ({ employee, requirement })),
+  );
   return { organization, employees, credentials, requirements };
 }
