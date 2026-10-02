@@ -6,6 +6,7 @@ import { getEmployee } from "@/modules/people/data";
 import { archiveEmployeeQualification, reviewQualification } from "@/modules/qualifications/actions";
 import { getEmployeeQualifications } from "@/modules/qualifications/data";
 import { statusLabel } from "@/modules/qualifications/status";
+import { canEditEmployee, requireAuthenticatedUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,19 +19,23 @@ export default async function EmployeeProfilePage({
 }) {
   const { id } = await params;
   const query = (await searchParams) ?? {};
-  const [employee, qualificationData] = await Promise.all([getEmployee(id), getEmployeeQualifications(id)]);
+  const employee = await getEmployee(id);
+  const user = await requireAuthenticatedUser();
 
   if (!employee) {
     notFound();
   }
+
+  const canEdit = await canEditEmployee(user, employee.id);
+  const qualificationData = await getEmployeeQualifications(employee.id);
 
   return (
     <>
       <PageHeader
         actions={
           <>
-            <SecondaryLink href="/people">Back to directory</SecondaryLink>
-            <ButtonLink href={`/people/${employee.id}/edit`}>Edit employee</ButtonLink>
+            {user.role !== "EMPLOYEE" ? <SecondaryLink href="/people">Back to directory</SecondaryLink> : null}
+            {canEdit ? <ButtonLink href={`/people/${employee.id}/edit`}>Edit employee</ButtonLink> : null}
           </>
         }
         breadcrumbs={[
@@ -69,13 +74,13 @@ export default async function EmployeeProfilePage({
             </p>
           </Panel>
           <section className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
-            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-base font-semibold">Qualifications</h2><p className="text-sm text-[color:var(--muted)]">Credentials held and position requirements.</p></div><ButtonLink href={`/people/${employee.id}/qualifications/new`}>Add qualification</ButtonLink></div>
+            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-base font-semibold">Qualifications</h2><p className="text-sm text-[color:var(--muted)]">Credentials held and position requirements.</p></div>{canEdit ? <ButtonLink href={`/people/${employee.id}/qualifications/new`}>Add qualification</ButtonLink> : null}</div>
             <div className="grid gap-3">
               {qualificationData?.qualifications.map((item) => <article className="rounded-sm border border-[color:var(--border)] p-4" key={item.id}>
                 <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">{item.qualificationType.name}</h3><p className="text-xs text-[color:var(--muted)]">{item.qualificationType.category} · {item.credentialNumber || "No credential number"}</p></div><div className="flex gap-2"><QualificationBadge text={statusLabel[item.status]} /><QualificationBadge text={item.verificationStatus[0]+item.verificationStatus.slice(1).toLowerCase()} /></div></div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3"><Description label="Issuer" value={item.issuingOrganization || item.qualificationType.issuingOrganization || "Not set"}/><Description label="Issued" value={formatDate(item.issueDate)}/><Description label="Expires" value={item.expirationDate ? formatDate(item.expirationDate) : "Does not expire"}/></dl>
                 <p className="mt-2 text-xs text-[color:var(--muted)]">Documents: {item.documents.length}{item.verificationNote ? ` · Review note: ${item.verificationNote}` : ""}</p>
-                <div className="mt-3 flex flex-wrap gap-2"><SecondaryLink href={`/people/${employee.id}/qualifications/${item.id}/edit`}>Edit</SecondaryLink><form action={reviewQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="VERIFIED">Verify</button><button className="ml-2 rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="REJECTED">Reject</button></form><form action={archiveEmployeeQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm">Archive</button></form></div>
+                {canEdit ? <div className="mt-3 flex flex-wrap gap-2"><SecondaryLink href={`/people/${employee.id}/qualifications/${item.id}/edit`}>Edit</SecondaryLink><form action={reviewQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="VERIFIED">Verify</button><button className="ml-2 rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="REJECTED">Reject</button></form><form action={archiveEmployeeQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm">Archive</button></form></div> : null}
               </article>)}
               {!qualificationData?.qualifications.length && <p className="rounded-sm border border-dashed border-[color:var(--border)] p-5 text-sm text-[color:var(--muted)]">No qualifications recorded.</p>}
             </div>

@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/auth/session";
 import { PageHeader } from "@/components/page-header";
 import { createEmployee } from "@/modules/people/actions";
 import { getEmployeeFormOptions } from "@/modules/people/data";
@@ -10,6 +11,7 @@ export default async function NewEmployeePage({
 }: {
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
+  await requireRole("ADMIN");
   const params = (await searchParams) ?? {};
   const options = await getEmployeeFormOptions();
 

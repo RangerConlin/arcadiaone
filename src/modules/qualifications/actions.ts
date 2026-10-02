@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { canEditEmployee, requireAuthenticatedUser, requireRole } from "@/lib/auth/session";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 import { calculateExpirationDate } from "./status";
@@ -11,11 +12,18 @@ const checked = (data: FormData, key: string) => data.get(key) === "on" || data.
 const fail = (path: string, message: string): never => redirect(`${path}?error=${encodeURIComponent(message)}`);
 const message = (error: { issues: { message: string }[] }) => error.issues[0]?.message ?? "Check the form and try again.";
 
+async function requireEmployeeEditor(employeeId: string) {
+  const user = await requireAuthenticatedUser();
+  if (!(await canEditEmployee(user, employeeId))) redirect("/forbidden");
+  return user;
+}
+
 function typeInput(data: FormData) {
   return { name: value(data, "name"), abbreviation: value(data, "abbreviation"), description: value(data, "description"), category: value(data, "category"), issuingOrganization: value(data, "issuingOrganization"), expirationBehavior: value(data, "expirationBehavior"), defaultValidityMonths: value(data, "defaultValidityMonths"), credentialNumberExpected: checked(data, "credentialNumberExpected"), documentExpected: checked(data, "documentExpected"), active: checked(data, "active") };
 }
 
 export async function saveQualificationType(data: FormData) {
+  await requireRole("ADMIN");
   const id = value(data, "id");
   const path = id ? `/administration/qualifications/${id}/edit` : "/administration/qualifications/new";
   const parsed = qualificationTypeSchema.safeParse(typeInput(data));
@@ -38,6 +46,7 @@ function credentialInput(data: FormData) {
 export async function saveEmployeeQualification(data: FormData) {
   const id = value(data, "id");
   const employeeId = value(data, "employeeId");
+  await requireEmployeeEditor(employeeId);
   const path = `/people/${employeeId}/qualifications/${id || "new"}`;
   const parsed = employeeQualificationSchema.safeParse(credentialInput(data));
   if (!parsed.success) return fail(path, message(parsed.error));
@@ -65,21 +74,24 @@ export async function saveEmployeeQualification(data: FormData) {
 
 export async function reviewQualification(data: FormData) {
   const id = value(data, "id"); const employeeId = value(data, "employeeId");
+  const user = await requireEmployeeEditor(employeeId);
   const rawStatus = value(data, "status");
   if (rawStatus !== "VERIFIED" && rawStatus !== "REJECTED") fail(`/people/${employeeId}`, "Invalid review status.");
   const organization = await getCurrentOrganization();
-  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { verificationStatus: rawStatus as "VERIFIED" | "REJECTED", verifiedAt: new Date(), verificationNote: value(data, "verificationNote") || null } });
+  await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { verificationStatus: rawStatus as "VERIFIED" | "REJECTED", verifiedAt: new Date(), verifiedByUserId: user.id, verificationNote: value(data, "verificationNote") || null } });
   redirect(`/people/${employeeId}?success=Verification status updated.`);
 }
 
 export async function archiveEmployeeQualification(data: FormData) {
   const id = value(data, "id"); const employeeId = value(data, "employeeId");
+  await requireEmployeeEditor(employeeId);
   const organization = await getCurrentOrganization();
   await prisma.employeeQualification.updateMany({ where: { id, employeeId, organizationId: organization.id }, data: { archivedAt: new Date() } });
   redirect(`/people/${employeeId}?success=Qualification archived.`);
 }
 
 export async function savePositionRequirement(data: FormData) {
+  await requireRole("ADMIN");
   const parsed = requirementSchema.safeParse({ positionId: value(data, "positionId"), qualificationTypeId: value(data, "qualificationTypeId"), required: value(data, "required") === "true", notes: value(data, "notes") });
   const path = `/administration/positions/${value(data, "positionId")}/edit`;
   if (!parsed.success) return fail(path, message(parsed.error));
@@ -92,12 +104,14 @@ export async function savePositionRequirement(data: FormData) {
 }
 
 export async function removePositionRequirement(data: FormData) {
+  await requireRole("ADMIN");
   const id = value(data, "id"); const positionId = value(data, "positionId"); const organization = await getCurrentOrganization();
   await prisma.positionQualificationRequirement.deleteMany({ where: { id, positionId, organizationId: organization.id } });
   redirect(`/administration/positions/${positionId}/edit?success=Requirement removed.`);
 }
 
 export async function updateQualificationSettings(data: FormData) {
+  await requireRole("ADMIN");
   const days = Number(value(data, "warningDays"));
   if (!Number.isInteger(days) || days < 1 || days > 365) fail("/administration/qualifications", "Warning threshold must be 1–365 days.");
   const organization = await getCurrentOrganization();

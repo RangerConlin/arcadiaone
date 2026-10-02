@@ -25,6 +25,11 @@ export default function AdministrationPage() {
           href="/administration/positions"
           title="Positions"
         />
+        <AdminCard
+          description="Create accounts, assign roles, deactivate access, and reset passwords."
+          href="/administration/users"
+          title="Users"
+        />
       </section>
     </>
   );

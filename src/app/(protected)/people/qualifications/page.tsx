@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { inputClass } from "@/components/ui";
+import { requireRole } from "@/lib/auth/session";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 import {
@@ -16,6 +17,7 @@ export default async function QualificationsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requireRole("ADMIN", "MANAGER");
   const filters = await searchParams;
   const organization = await getCurrentOrganization();
   const [data, types, departments, positions] = await Promise.all([

@@ -1,16 +1,20 @@
 import Link from "next/link";
+import { logout } from "@/lib/auth/actions";
+import type { AuthenticatedUser } from "@/lib/auth/session";
 
-const navigation = [
+const commonNavigation = [
   { label: "Dashboard", href: "/" },
   { label: "People", href: "/people" },
   { label: "Qualifications", href: "/people/qualifications" },
   { label: "Projects", href: "/projects" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
-  { label: "Administration", href: "/administration" },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user: AuthenticatedUser }) {
+  const navigation = user.role === "EMPLOYEE"
+    ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 4)]
+    : [...commonNavigation, ...(user.role === "ADMIN" ? [{ label: "Administration", href: "/administration" }] : [])];
   return (
     <div className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-black/20 bg-[color:var(--sidebar)] text-[color:var(--sidebar-foreground)] lg:block">
@@ -56,6 +60,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="text-right"><Link className="font-semibold hover:text-[color:var(--accent)]" href="/account">{user.displayName}</Link><p className="text-xs text-[color:var(--muted)]">{user.role}</p></div>
+              <form action={logout}><button className="rounded-sm border border-[color:var(--border)] px-3 py-1.5 font-medium hover:border-[color:var(--accent)]" type="submit">Log out</button></form>
+            </div>
           </div>
         </header>
         <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
