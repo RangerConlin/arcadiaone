@@ -326,3 +326,17 @@ ArcadiaOne includes a deliberately lightweight client workspace. A `Client` is a
 Projects can optionally link to a client. The existing `Project.clientName` text remains intact for legacy records and unlisted clients, while `Project.clientId` provides navigation and reporting when a relationship is selected. Neither clients nor projects require the other. Organization-scoped server authorization limits employees to clients on projects they can see; managers can additionally work with clients they created or manage through a project; administrators can manage the full organization directory.
 
 The relationships intentionally leave clean attachment points for future invoices, rentals, agreements, documents, e-signatures, and selectively provisioned client portal access. None of those modules—and no opportunities, forecasting, campaign, email-sync, or mandatory lead workflow—are implemented by this feature.
+
+## Rental and equipment tracking
+
+ArcadiaOne tracks **individual assets** in `Equipment`; inventory is useful even when an asset has never been rented. Organization-scoped, configurable categories and locations describe what an asset is and where it is. Operational `status` is deliberately separate from physical `condition`, and non-rentable or inactive assets remain visible in the inventory. Package models provide future reusable category-based selection templates without inventing stock quantities.
+
+The intentionally small rental lifecycle is `DRAFT → RESERVED → PREPARING → READY → CHECKED_OUT → PARTIALLY_RETURNED/RETURNED → CLOSED`, with `CANCELLED` as a terminal alternative. Client, client contact, and project links are optional, so internal reservations are supported. Reservation dates are stored directly on the rental for later calendar integration.
+
+Availability is centralized in `src/modules/rentals/availability.ts`. An asset must be active, rentable, and in an operationally eligible state, and it must have no rental item whose non-terminal rental overlaps the requested half-open date range (`existing.start < requested.end` and `existing.end > requested.start`). Cancelled and closed rentals do not block dates. Server actions repeat this conflict check when an item is added; the UI list is not treated as authoritative.
+
+Preparation records a responsible employee, time, and simple item notes. Checkout snapshots the rate, rate unit, condition, time, notes, and responsible employee. Individual returns support partial-return state, snapshot return condition and notes, and require notes when condition worsens. Returned assets enter `INSPECTION`, never `AVAILABLE`; an administrator must return them to service or choose maintenance, out-of-service, or lost. Meaningful rental activity and item snapshots provide asset history without event sourcing.
+
+Client and project relations are optional foreign keys and make linked rentals queryable from those workspaces without making either module dependent on rentals. The dashboard derives checked-out, due-soon, overdue, inspection, and maintenance counts from real data; overdue is calculated from expected return time and current lifecycle rather than stored.
+
+Equipment defaults and rental-item rates are metadata only. The default is copied to the rental item when selected, preserving historical pricing; the displayed subtotal is explicitly an estimate. No tax, deposit, invoice, payment, or accounting transaction is created. A future invoice can reference the rental and its optional client/project while consuming these immutable item snapshots.

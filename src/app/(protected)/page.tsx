@@ -4,11 +4,12 @@ import { getDashboardStats } from "@/modules/people/data";
 import { getProjectDashboardStats } from "@/modules/projects/data";
 import { getTaskDashboardStats } from "@/modules/tasks/data";
 import { getQualificationsOverview } from "@/modules/qualifications/data";
+import { getRentalDashboard } from "@/modules/rentals/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [stats, qualifications, taskStats, projects] = await Promise.all([getDashboardStats(), getQualificationsOverview(), getTaskDashboardStats(), getProjectDashboardStats()]);
+  const [stats, qualifications, taskStats, projects, rentals] = await Promise.all([getDashboardStats(), getQualificationsOverview(), getTaskDashboardStats(), getProjectDashboardStats(), getRentalDashboard()]);
   const expired = qualifications.credentials.filter((item) => item.status === "EXPIRED").length;
   const expiring = qualifications.credentials.filter((item) => item.status === "EXPIRING_SOON").length;
   const missing = qualifications.requirements.filter((item) => item.requirement.status === "MISSING").length;
@@ -41,6 +42,10 @@ export default async function DashboardPage() {
           <Metric label="On hold" value={projects.onHold} />
           <Metric label="Upcoming milestones" value={projects.upcoming} />
         </div>
+      </section>
+      <section className="mt-6">
+        <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold">Rental operations</h2><SecondaryLink href="/rentals">Open rentals</SecondaryLink></div>
+        <div className="grid gap-4 md:grid-cols-5"><Metric label="Checked out" value={rentals.checkedOut}/><Metric label="Due back soon" value={rentals.dueSoon}/><Metric label="Overdue" value={rentals.overdue}/><Metric label="Awaiting inspection" value={rentals.inspection}/><Metric label="In maintenance" value={rentals.maintenance}/></div>
       </section>
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
