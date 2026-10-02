@@ -192,3 +192,13 @@ https://one.arcadiacommandsolutions.com/api/health
 ```
 
 The application container exposes port `3000` to Docker for Traefik discovery and does not publish the port directly on the host.
+
+## Projects module
+
+Projects are standalone organization-owned records and require only a name and lifecycle status. Optional metadata includes a human-readable number (unique within its organization), priority, dates, free-text client and location, and a primary project manager. This deliberately follows an **integration-point** design: projects do not require CRM clients, tasks, qualifications, invoices, rentals, documents, timekeeping, or portal records. Future modules should add explicit optional project foreign keys rather than make project creation depend on them.
+
+A project can have employee memberships with reusable project roles. Project roles describe the employee's assignment on a project and are separate from job positions, application permissions, and qualifications. Ending a membership records `leftAt` and retains history. Lightweight milestones represent high-level checkpoints, while the activity stream stores manual notes and a small set of meaningful project events.
+
+The current module includes the paginated/searchable project directory, create/edit forms, overview, team management, milestones, activity notes, project-role administration, dashboard counts, and employee-profile assignments. It intentionally does not implement tasks or any downstream commercial/document systems.
+
+Project data access is organization-scoped on the server. ADMIN may administer all projects and project roles; MANAGER may create projects and manage projects where they are the assigned project manager; EMPLOYEE has read access only to assigned projects. The temporary server identity adapter in `src/modules/projects/authorization.ts` reads `ARCADIA_ROLE` and `ARCADIA_EMPLOYEE_ID`; it defaults to ADMIN to preserve the foundation application's current behavior and is the single seam to replace when the authentication provider is connected. UI visibility is not treated as authorization.

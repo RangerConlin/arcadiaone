@@ -20,6 +20,11 @@ export default function AdministrationPage() {
           href="/administration/positions"
           title="Positions"
         />
+        <AdminCard
+          description="Create reusable project assignment roles independently from employee positions."
+          href="/administration/project-roles"
+          title="Project roles"
+        />
       </section>
     </>
   );

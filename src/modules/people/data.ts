@@ -65,6 +65,10 @@ export async function getEmployee(id: string) {
       },
       position: true,
       supervisor: true,
+      projectMemberships: {
+        include: { project: true, projectRole: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 }

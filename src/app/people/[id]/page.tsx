@@ -65,13 +65,24 @@ export default async function EmployeeProfilePage({
               {employee.notes || "No notes recorded."}
             </p>
           </Panel>
+          <Panel title="Projects">
+            {employee.projectMemberships.length ? employee.projectMemberships.map((membership) => (
+              <div key={membership.id} className="rounded-sm border border-[color:var(--border)] p-3">
+                <a className="font-semibold text-[color:var(--accent)] hover:underline" href={`/projects/${membership.project.id}`}>
+                  {membership.project.name}
+                </a>
+                <p className="mt-1 text-xs text-[color:var(--muted)]">
+                  {membership.projectRole?.name || "No project role"} · {membership.project.status} · {formatDate(membership.joinedAt)}–{membership.leftAt ? formatDate(membership.leftAt) : "Present"}
+                </p>
+              </div>
+            )) : <p className="text-sm text-[color:var(--muted)]">No project assignments.</p>}
+          </Panel>
         </div>
         <aside className="rounded-sm border border-dashed border-[color:var(--border)] bg-[color:var(--panel)] p-5">
           <h2 className="text-base font-semibold">Future profile areas</h2>
           <div className="mt-4 grid gap-2 text-sm text-[color:var(--muted)]">
             <span>Certifications</span>
             <span>Training</span>
-            <span>Projects</span>
             <span>Documents</span>
           </div>
         </aside>
