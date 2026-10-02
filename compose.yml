@@ -50,6 +50,10 @@ services:
       PORT: "3000"
       DATABASE_URL: ${DATABASE_URL}
       AUTH_SECRET: ${AUTH_SECRET}
+      DOCUMENT_STORAGE_PATH: /data/documents
+      DOCUMENT_MAX_UPLOAD_BYTES: ${DOCUMENT_MAX_UPLOAD_BYTES:-26214400}
+    volumes:
+      - document-data:/data/documents
     expose:
       - "3000"
     labels:
@@ -61,3 +65,4 @@ services:
 
 volumes:
   postgres-data:
+  document-data:

@@ -35,6 +35,11 @@ export default function AdministrationPage() {
           href="/administration/project-roles"
           title="Project roles"
         />
+        <AdminCard
+          description="Configure shared document categories and storage metadata."
+          href="/administration/documents"
+          title="Documents"
+        />
       </section>
     </>
   );
