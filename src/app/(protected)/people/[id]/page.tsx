@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { ButtonLink, Notice, SecondaryLink, StatusBadge } from "@/components/ui";
 import { formatDate, formatFullName, formatName } from "@/lib/format";
 import { getEmployee } from "@/modules/people/data";
+import { canEditEmployee, requireAuthenticatedUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function EmployeeProfilePage({
   const { id } = await params;
   const query = (await searchParams) ?? {};
   const employee = await getEmployee(id);
+  const user = await requireAuthenticatedUser();
 
   if (!employee) {
     notFound();
@@ -26,8 +28,8 @@ export default async function EmployeeProfilePage({
       <PageHeader
         actions={
           <>
-            <SecondaryLink href="/people">Back to directory</SecondaryLink>
-            <ButtonLink href={`/people/${employee.id}/edit`}>Edit employee</ButtonLink>
+            {user.role !== "EMPLOYEE" ? <SecondaryLink href="/people">Back to directory</SecondaryLink> : null}
+            {(await canEditEmployee(user, employee.id)) ? <ButtonLink href={`/people/${employee.id}/edit`}>Edit employee</ButtonLink> : null}
           </>
         }
         breadcrumbs={[

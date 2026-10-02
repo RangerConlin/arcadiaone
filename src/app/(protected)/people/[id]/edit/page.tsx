@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { canEditEmployee, requireRole } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { updateEmployee } from "@/modules/people/actions";
 import { getEmployee, getEmployeeFormOptions } from "@/modules/people/data";
@@ -14,6 +16,8 @@ export default async function EditEmployeePage({
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
   const { id } = await params;
+  const user = await requireRole("ADMIN", "MANAGER");
+  if (!(await canEditEmployee(user, id))) redirect("/forbidden");
   const query = (await searchParams) ?? {};
   const [employee, options] = await Promise.all([
     getEmployee(id),

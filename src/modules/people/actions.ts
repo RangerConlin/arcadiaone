@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
+import { canEditEmployee, requireRole } from "@/lib/auth/session";
 import {
   departmentSchema,
   employeeSchema,
@@ -55,6 +56,7 @@ function positionFormData(formData: FormData) {
 }
 
 export async function createEmployee(formData: FormData) {
+  await requireRole("ADMIN");
   const parsed = employeeSchema.safeParse(employeeFormData(formData));
   if (!parsed.success) {
     errorRedirect("/people/new", flattenError(parsed.error));
@@ -83,6 +85,8 @@ export async function createEmployee(formData: FormData) {
 
 export async function updateEmployee(formData: FormData) {
   const id = getString(formData, "id");
+  const user = await requireRole("ADMIN", "MANAGER");
+  if (!(await canEditEmployee(user, id))) redirect("/forbidden");
   const parsed = employeeSchema.safeParse(employeeFormData(formData));
   const failurePath = `/people/${id}/edit`;
 
@@ -138,6 +142,7 @@ export async function updateEmployee(formData: FormData) {
 }
 
 export async function createDepartment(formData: FormData) {
+  await requireRole("ADMIN");
   const parsed = departmentSchema.safeParse(departmentFormData(formData));
   if (!parsed.success) {
     errorRedirect("/administration/departments/new", flattenError(parsed.error));
@@ -160,6 +165,7 @@ export async function createDepartment(formData: FormData) {
 }
 
 export async function updateDepartment(formData: FormData) {
+  await requireRole("ADMIN");
   const id = getString(formData, "id");
   const parsed = departmentSchema.safeParse(departmentFormData(formData));
   const failurePath = `/administration/departments/${id}/edit`;
@@ -194,6 +200,7 @@ export async function updateDepartment(formData: FormData) {
 }
 
 export async function toggleDepartment(formData: FormData) {
+  await requireRole("ADMIN");
   const id = getString(formData, "id");
   const active = getString(formData, "active") === "true";
   const organization = await getCurrentOrganization();
@@ -207,6 +214,7 @@ export async function toggleDepartment(formData: FormData) {
 }
 
 export async function createPosition(formData: FormData) {
+  await requireRole("ADMIN");
   const parsed = positionSchema.safeParse(positionFormData(formData));
   if (!parsed.success) {
     errorRedirect("/administration/positions/new", flattenError(parsed.error));
@@ -229,6 +237,7 @@ export async function createPosition(formData: FormData) {
 }
 
 export async function updatePosition(formData: FormData) {
+  await requireRole("ADMIN");
   const id = getString(formData, "id");
   const parsed = positionSchema.safeParse(positionFormData(formData));
   const failurePath = `/administration/positions/${id}/edit`;
@@ -263,6 +272,7 @@ export async function updatePosition(formData: FormData) {
 }
 
 export async function togglePosition(formData: FormData) {
+  await requireRole("ADMIN");
   const id = getString(formData, "id");
   const active = getString(formData, "active") === "true";
   const organization = await getCurrentOrganization();
