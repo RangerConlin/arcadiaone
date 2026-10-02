@@ -4,9 +4,9 @@ ArcadiaOne is an employee-management and project-management web application for 
 
 ## Status
 
-This repository contains the production-oriented ArcadiaOne application foundation. The People module supports employee directory, employee profile, employee create/edit, department administration, position administration, qualification management, role-based user administration, and straightforward task/work management.
+This repository contains the production-oriented ArcadiaOne application foundation. The People module supports employee directory, employee profile, employee create/edit, department administration, position administration, qualification management, role-based user administration, project management, and straightforward task/work management.
 
-The following areas are intentionally not implemented yet: training/LMS, projects (beyond task linkage), scheduling, general document management, timekeeping, payroll, SSO/MFA, advanced permissions, notifications, external integrations, and reporting engine features.
+The following areas are intentionally not implemented yet: training/LMS, scheduling, general document management, timekeeping, payroll, SSO/MFA, advanced permissions, notifications, external integrations, and reporting engine features.
 
 ## Technology
 
@@ -37,7 +37,7 @@ The database currently includes:
 - `Session`
 - `SystemHealth`
 - `User`, with organization role and optional employee identity
-- `Project`, `ProjectMember`, and `ProjectMilestone`
+- `Project`, `ProjectRole`, `ProjectMember`, `ProjectMilestone`, and `ProjectActivity`
 - `Task`, `TaskChecklistItem`, `TaskComment`, and `TaskActivity`
 
 Employees belong to an organization, may belong to a department and position, and may optionally reference another employee as their supervisor. Employee numbers are unique within an organization when provided.
@@ -68,6 +68,8 @@ Implemented:
 - Standalone and project-linked task creation
 - Task details, status/assignment/dates, full subtasks, lightweight checklist items, comments, and activity
 - Project task filters and milestone completion progress
+- Project directory with search/filters, create/edit, team memberships with reusable project roles, milestones, and activity notes
+- Project-role administration and project assignments on employee profiles
 - Live task metrics on the dashboard
 
 Calendar and Reports remain placeholders.
@@ -304,3 +306,15 @@ Optionally set `BOOTSTRAP_ADMIN_EMPLOYEE_ID` to link an existing employee. The c
 Visit `/login`, sign in with the bootstrap account, and change the temporary password on `/account`. There is no registration or email reset flow. Every user can change their password by supplying the current password; this revokes prior sessions. Administrators manage accounts at `/administration/users`, where they can create a linked or unlinked account, assign a role, deactivate access, or set a temporary password. Administrative resets also revoke existing sessions and mark the account for a password change.
 
 For production, terminate TLS at Traefik, use unique strong database and auth secrets, restrict access to the deployment environment, apply migrations before starting the new image, and bootstrap the first administrator from a trusted terminal. Never send temporary passwords by email or place them in logs.
+
+## Projects module
+
+Projects are standalone organization-owned records and require only a name and lifecycle status. Optional metadata includes a human-readable number (unique within its organization), priority, dates, free-text client and location, and a primary project manager. This deliberately follows an **integration-point** design: projects do not require CRM clients, tasks, qualifications, invoices, rentals, documents, timekeeping, or portal records. Future modules should add explicit optional project foreign keys rather than make project creation depend on them.
+
+A project can have employee memberships with reusable project roles. Project roles describe the employee's assignment on a project and are separate from job positions, application permissions, and qualifications. Ending a membership records `leftAt` and retains history. Lightweight milestones represent high-level checkpoints, while the activity stream stores manual notes and a small set of meaningful project events.
+
+The current module includes the paginated/searchable project directory, create/edit forms, overview, team management, milestones, activity notes, project-role administration, dashboard counts, and employee-profile assignments. Task management lives in its own module and links to projects; no downstream commercial or document systems are implemented.
+
+Project data access is organization-scoped on the server and enforced by the authenticated session (`src/modules/projects/authorization.ts`). ADMIN may administer all projects and project roles. MANAGER may create projects (as their own project manager) and manage projects where they are the assigned project manager. EMPLOYEE has read access only to projects they manage or actively belong to. Only ADMIN may change a project's manager. UI visibility is not treated as authorization.
+
+Tasks reference projects and project milestones directly: a project detail page has a Tasks tab, and milestone progress is derived from linked tasks. Project managers are employees (`Project.projectManagerId`), not user accounts.

@@ -26,6 +26,10 @@ model Organization {
   positionQualificationRequirements  PositionQualificationRequirement[]
   users                              User[]
   projects                           Project[]
+  projectMembers                     ProjectMember[]
+  projectRoles                       ProjectRole[]
+  projectMilestones                  ProjectMilestone[]
+  projectActivities                  ProjectActivity[]
   tasks                              Task[]
   taskComments                       TaskComment[]
   taskActivities                     TaskActivity[]
@@ -92,6 +96,7 @@ model Employee {
   directReports      Employee[]              @relation("EmployeeSupervisor")
   qualifications     EmployeeQualification[]
   user               User?
+  managedProjects    Project[]               @relation("ProjectManager")
   projectMemberships ProjectMember[]
   assignedTasks      Task[]                  @relation("TaskAssignee")
 
@@ -104,52 +109,102 @@ model Employee {
 }
 
 model Project {
-  id             String             @id @default(uuid())
-  organizationId String
-  name           String
-  description    String?
-  status         ProjectStatus      @default(ACTIVE)
-  managerUserId  String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  manager        User?              @relation("ProjectManager", fields: [managerUserId], references: [id], onDelete: SetNull)
-  members        ProjectMember[]
-  milestones     ProjectMilestone[]
-  tasks          Task[]
+  id               String             @id @default(uuid())
+  organizationId   String
+  projectNumber    String?
+  name             String
+  description      String?
+  status           ProjectStatus      @default(PLANNING)
+  priority         ProjectPriority    @default(NORMAL)
+  startDate        DateTime?
+  targetEndDate    DateTime?
+  actualEndDate    DateTime?
+  projectManagerId String?
+  clientName       String?
+  location         String?
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  projectManager   Employee?          @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
+  members          ProjectMember[]
+  milestones       ProjectMilestone[]
+  activities       ProjectActivity[]
+  tasks            Task[]
 
-  @@unique([organizationId, name])
+  @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
+  @@index([organizationId, projectManagerId])
+  @@index([organizationId, name])
 }
 
 model ProjectMember {
-  id         String   @id @default(uuid())
-  projectId  String
-  employeeId String
-  roleName   String?
-  createdAt  DateTime @default(now())
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid())
+  organizationId String
+  projectId      String
+  employeeId     String
+  projectRoleId  String?
+  joinedAt       DateTime?
+  leftAt         DateTime?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  projectRole    ProjectRole? @relation(fields: [projectRoleId], references: [id], onDelete: SetNull)
 
+  // One durable membership per employee keeps history while leftAt marks it ended.
   @@unique([projectId, employeeId])
-  @@index([employeeId])
+  @@index([organizationId, employeeId])
 }
 
 model ProjectMilestone {
-  id          String    @id @default(uuid())
-  projectId   String
-  name        String
-  description String?
-  dueDate     DateTime?
-  completedAt DateTime?
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks       Task[]
+  id             String          @id @default(uuid())
+  organizationId String
+  projectId      String
+  name           String
+  description    String?
+  targetDate     DateTime?
+  completedAt    DateTime?
+  status         MilestoneStatus @default(PENDING)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks          Task[]
 
-  @@unique([projectId, name])
-  @@index([projectId, sortOrder])
+  @@index([organizationId, projectId, sortOrder])
+  @@index([organizationId, status, targetDate])
+}
+
+model ProjectRole {
+  id             String          @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members        ProjectMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+model ProjectActivity {
+  id             String              @id @default(uuid())
+  organizationId String
+  projectId      String
+  type           ProjectActivityType @default(NOTE)
+  content        String
+  createdAt      DateTime            @default(now())
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, projectId, createdAt])
 }
 
 model Task {
@@ -352,7 +407,6 @@ model User {
   organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   employee           Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   sessions           Session[]
-  managedProjects    Project[]      @relation("ProjectManager")
   createdTasks       Task[]         @relation("TaskCreator")
   assignedTasks      Task[]         @relation("TaskAssigner")
   taskComments       TaskComment[]
@@ -387,6 +441,26 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectActivityType {
+  NOTE
+  SYSTEM
 }
 
 enum TaskStatus {

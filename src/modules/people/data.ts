@@ -2,6 +2,7 @@ import type { EmploymentStatus } from "@/generated/prisma/enums";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 import { canViewEmployee, requireAuthenticatedUser, requireRole } from "@/lib/auth/session";
+import { projectVisibilityWhere } from "@/modules/projects/authorization";
 
 export async function getDashboardStats() {
   const organization = await getCurrentOrganization();
@@ -69,6 +70,11 @@ export async function getEmployee(id: string) {
       },
       position: true,
       supervisor: true,
+      projectMemberships: {
+        where: { project: projectVisibilityWhere(user) },
+        include: { project: true, projectRole: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 }

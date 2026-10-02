@@ -11,8 +11,8 @@ export function taskVisibilityWhere(actor: Actor): Prisma.TaskWhereInput {
       OR: [
         { assignedToEmployeeId: actor.employeeId ?? "__none__" },
         { createdByUserId: actor.id },
-        { project: { managerUserId: actor.id } },
-        { project: { members: { some: { employeeId: actor.employeeId ?? "__none__" } } } },
+        { project: { projectManagerId: actor.employeeId ?? "__none__" } },
+        { project: { members: { some: { employeeId: actor.employeeId ?? "__none__", leftAt: null } } } },
         { projectId: null, createdByUserId: actor.id },
       ],
     };
@@ -21,7 +21,7 @@ export function taskVisibilityWhere(actor: Actor): Prisma.TaskWhereInput {
     organizationId: actor.organizationId,
     OR: [
       { assignedToEmployeeId: actor.employeeId ?? "__none__" },
-      { project: { members: { some: { employeeId: actor.employeeId ?? "__none__" } } } },
+      { project: { members: { some: { employeeId: actor.employeeId ?? "__none__", leftAt: null } } } },
     ],
   };
 }
@@ -35,7 +35,7 @@ export async function requireTaskAccess(taskId: string, actor: Actor) {
   return task;
 }
 
-export function canManageTask(actor: Actor, task: { createdByUserId: string; project: { managerUserId: string | null } | null }) {
+export function canManageTask(actor: Actor, task: { createdByUserId: string; project: { projectManagerId: string | null } | null }) {
   return actor.role === "ADMIN" || actor.role === "MANAGER" &&
-    (task.createdByUserId === actor.id || task.project?.managerUserId === actor.id);
+    (task.createdByUserId === actor.id || (actor.employeeId !== null && task.project?.projectManagerId === actor.employeeId));
 }

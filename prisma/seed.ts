@@ -74,14 +74,25 @@ async function main() {
       },
     });
 
-    const admin = await prisma.user.findFirst({ where: { organizationId: organization.id, role: "ADMIN" }, select: { id: true } });
-    const project = await prisma.project.upsert({
-      where: { organizationId_name: { organizationId: organization.id, name: "Operations Readiness" } },
+    const role = await prisma.projectRole.upsert({
+      where: { organizationId_name: { organizationId: organization.id, name: "Coordinator" } },
       update: {},
-      create: { organizationId: organization.id, name: "Operations Readiness", description: "Sample project for local task workflows.", managerUserId: admin?.id },
+      create: { organizationId: organization.id, name: "Coordinator", description: "Sample project role." },
     });
-    await prisma.projectMember.upsert({ where: { projectId_employeeId: { projectId: project.id, employeeId: employee.id } }, update: {}, create: { projectId: project.id, employeeId: employee.id, roleName: "Coordinator" } });
-    await prisma.projectMilestone.upsert({ where: { projectId_name: { projectId: project.id, name: "Initial review" } }, update: {}, create: { projectId: project.id, name: "Initial review" } });
+    const projectNumber = "OPS-001";
+    const project =
+      (await prisma.project.findUnique({ where: { organizationId_projectNumber: { organizationId: organization.id, projectNumber } } })) ??
+      (await prisma.project.create({
+        data: { organizationId: organization.id, projectNumber, name: "Operations Readiness", description: "Sample project for local task workflows.", status: "ACTIVE", projectManagerId: employee.id },
+      }));
+    await prisma.projectMember.upsert({
+      where: { projectId_employeeId: { projectId: project.id, employeeId: employee.id } },
+      update: {},
+      create: { organizationId: organization.id, projectId: project.id, employeeId: employee.id, projectRoleId: role.id },
+    });
+    if (!(await prisma.projectMilestone.findFirst({ where: { projectId: project.id, name: "Initial review" } }))) {
+      await prisma.projectMilestone.create({ data: { organizationId: organization.id, projectId: project.id, name: "Initial review" } });
+    }
   }
 }
 
