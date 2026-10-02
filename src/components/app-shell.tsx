@@ -26,6 +26,7 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
       clients,
       rentals,
       documents,
+      { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }] },
     ];
   }
 
@@ -39,6 +40,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     { id: "calendar", label: "Calendar", icon: "calendar", href: "/calendar", prefix: "/calendar", subs: [{ label: "Calendar", href: "/calendar" }] },
     { id: "reports", label: "Reports", icon: "reports", href: "/reports", prefix: "/reports", subs: [{ label: "Reports", href: "/reports" }] },
     documents,
+    { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }, { label: "Prepare", href: "/signatures/new" }] },
+    { id: "invoices", label: "Invoices", icon: "invoices", href: "/invoices", prefix: "/invoices", subs: [{ label: "Invoices", href: "/invoices" }, { label: "New draft", href: "/invoices/new" }] },
     ...(user.role === "ADMIN"
       ? [{
           id: "admin", label: "Administration", railLabel: "Admin", icon: "admin" as const, href: "/administration", prefix: "/administration",

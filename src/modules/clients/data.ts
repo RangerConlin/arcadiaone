@@ -25,6 +25,6 @@ export async function getClient(id: string) {
   const user = await requireAuthenticatedUser();
   return prisma.client.findFirst({ where: { AND: [{ id }, clientVisibilityWhere(user)] }, include: {
     contacts: { orderBy: [{ primary: "desc" }, { lastName: "asc" }] }, projects: { orderBy: { updatedAt: "desc" } },
-    rentals: { include: { project: true, _count: { select: { items: true } } }, orderBy: { reservationStart: "desc" } }, activities: { orderBy: { occurredAt: "desc" }, include: { user: { select: { email: true, employee: { select: { firstName: true, lastName: true, preferredName: true } } } } } }, primaryContact: true,
+    invoices: { orderBy: { issueDate: "desc" } }, rentals: { include: { project: true, _count: { select: { items: true } } }, orderBy: { reservationStart: "desc" } }, activities: { orderBy: { occurredAt: "desc" }, include: { user: { select: { email: true, employee: { select: { firstName: true, lastName: true, preferredName: true } } } } } }, primaryContact: true,
   } });
 }
