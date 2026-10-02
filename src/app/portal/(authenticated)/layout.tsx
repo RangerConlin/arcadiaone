@@ -1,0 +1,2 @@
+import { PortalShell } from "@/components/portal-shell"; import { prisma } from "@/lib/prisma"; import { requirePortalUser } from "@/lib/portal/session";
+export default async function Layout({children}:{children:React.ReactNode}){const user=await requirePortalUser();const client=await prisma.client.findFirstOrThrow({where:{id:user.clientId,organizationId:user.organizationId},select:{name:true,displayName:true}});return <PortalShell user={user} clientName={client.displayName||client.name}>{children}</PortalShell>}
