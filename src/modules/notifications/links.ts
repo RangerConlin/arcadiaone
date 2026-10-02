@@ -16,6 +16,10 @@ export const notificationLinks = {
   signature: (id: string) => `/signatures/${id}`,
   approval: (clientId: string) => `/clients/${clientId}?tab=portal`,
   document: (id: string) => `/documents/${id}`,
+  trainingSession: (id: string) => `/training/sessions/${id}`,
+  trainingRecord: (id: string) => `/training/records/${id}`,
+  maintenance: (id: string) => `/maintenance/${id}`,
+  equipment: (id: string) => `/rentals/equipment/${id}`,
 } as const;
 
 const ALLOWED: RegExp[] = [
@@ -27,6 +31,9 @@ const ALLOWED: RegExp[] = [
   new RegExp(`^/signatures/${ID}$`),
   new RegExp(`^/clients/${ID}\\?tab=portal$`),
   new RegExp(`^/documents/${ID}$`),
+  new RegExp(`^/training/(sessions|records)/${ID}$`),
+  new RegExp(`^/maintenance/${ID}$`),
+  new RegExp(`^/rentals/equipment/${ID}$`),
 ];
 
 /** Defense in depth: only same-origin, known application routes are ever redirected to. */
@@ -38,4 +45,5 @@ export function safeActionUrl(url: string | null | undefined) {
 export const ENTITY_LABELS: Record<NotificationEntityType, string> = {
   TASK: "Task", PROJECT: "Project", EMPLOYEE_QUALIFICATION: "Qualification", RENTAL: "Rental",
   INVOICE: "Invoice", SIGNATURE_REQUEST: "Signature request", CLIENT_APPROVAL_REQUEST: "Approval", DOCUMENT: "Document",
+  TRAINING_SESSION: "Training session", TRAINING_RECORD: "Training record", MAINTENANCE_RECORD: "Maintenance", EQUIPMENT: "Equipment",
 };

@@ -1,4 +1,5 @@
 import { isDayKey } from "@/lib/datetime";
+import { TYPES as MAINTENANCE_TYPES } from "@/modules/maintenance/validation";
 import type { FilterKey, ReportDefinition, ReportFilters } from "./types";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -23,6 +24,10 @@ export function parseReportFilters(def: Pick<ReportDefinition, "filters" | "stat
   if (wants("employee")) filters.employee = id(one(params, "employee"));
   if (wants("project")) filters.project = id(one(params, "project"));
   if (wants("client")) filters.client = id(one(params, "client"));
+  if (wants("course")) filters.course = id(one(params, "course"));
+  if (wants("equipment")) filters.equipment = id(one(params, "equipment"));
+  if (wants("equipmentCategory")) filters.equipmentCategory = id(one(params, "equipmentCategory"));
+  if (wants("maintenanceType")) { const t = one(params, "maintenanceType"); if (t && (MAINTENANCE_TYPES as readonly string[]).includes(t)) filters.maintenanceType = t; }
   if (wants("qualificationType")) filters.qualificationType = id(one(params, "qualificationType"));
   if (wants("status")) {
     const status = one(params, "status");

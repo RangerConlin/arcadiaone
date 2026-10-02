@@ -162,3 +162,129 @@ export function notifyDocumentShared(args: { organizationId: string; documentId:
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Training
+// ---------------------------------------------------------------------------
+
+const sessionTitle = (session: { titleOverride: string | null; trainingCourse: { name: string } }) => session.titleOverride ?? session.trainingCourse.name;
+const dateTimeLabel = (date: Date) => `${date.toISOString().slice(0, 10)} ${date.toISOString().slice(11, 16)} UTC`;
+
+export function notifyTrainingEnrolled(args: { organizationId: string; sessionId: string; employeeId: string; actorUserId: string }) {
+  return notifySafely(async () => {
+    const session = await prisma.trainingSession.findFirst({ where: { id: args.sessionId, organizationId: args.organizationId }, include: { trainingCourse: { select: { name: true } } } });
+    if (!session) return;
+    const recipient = (await userIdsForEmployees(args.organizationId, [args.employeeId])).get(args.employeeId);
+    if (!recipient || recipient === args.actorUserId) return;
+    await notify({
+      organizationId: args.organizationId, userId: recipient, type: "TRAINING_ENROLLED", title: "Enrolled in training",
+      message: `${sessionTitle(session)} — ${dateTimeLabel(session.startAt)}${session.location ? `, ${session.location}` : ""}`,
+      entity: { type: "TRAINING_SESSION", id: session.id }, actionUrl: notificationLinks.trainingSession(session.id),
+      dedupeKey: `training-enrolled:${session.id}:${args.employeeId}:${session.startAt.toISOString()}`,
+    });
+  });
+}
+
+/** Tells enrolled participants that a session moved or was cancelled. The change itself is part of the key. */
+export function notifyTrainingSessionChanged(args: { organizationId: string; sessionId: string; change: "rescheduled" | "cancelled"; actorUserId: string }) {
+  return notifySafely(async () => {
+    const session = await prisma.trainingSession.findFirst({
+      where: { id: args.sessionId, organizationId: args.organizationId },
+      include: { trainingCourse: { select: { name: true } }, enrollments: { where: { status: { in: ["ENROLLED", "CANCELLED"] } }, select: { employeeId: true, status: true } } },
+    });
+    if (!session) return;
+    const employees = session.enrollments.filter((e) => args.change === "cancelled" || e.status === "ENROLLED").map((e) => e.employeeId);
+    const users = await userIdsForEmployees(args.organizationId, employees);
+    const cache = new RecipientCache(args.organizationId);
+    const stamp = args.change === "cancelled" ? "cancelled" : session.startAt.toISOString();
+    for (const userId of new Set(users.values())) {
+      if (userId === args.actorUserId) continue;
+      await notify({
+        organizationId: args.organizationId, userId, type: "TRAINING_SESSION_CHANGED",
+        title: args.change === "cancelled" ? "Training cancelled" : "Training rescheduled",
+        message: args.change === "cancelled" ? `${sessionTitle(session)} on ${dateTimeLabel(session.startAt)} was cancelled.` : `${sessionTitle(session)} now starts ${dateTimeLabel(session.startAt)}${session.location ? `, ${session.location}` : ""}.`,
+        entity: { type: "TRAINING_SESSION", id: session.id }, actionUrl: notificationLinks.trainingSession(session.id), dedupeKey: `training-changed:${session.id}:${stamp}`,
+      }, cache);
+    }
+  });
+}
+
+/** An external record needs a verifier: administrators, plus managers only where the organization lets them verify. */
+export function notifyTrainingVerificationNeeded(args: { organizationId: string; recordId: string; actorUserId: string }) {
+  return notifySafely(async () => {
+    const record = await prisma.employeeTrainingRecord.findFirst({ where: { id: args.recordId, organizationId: args.organizationId }, include: { employee: { select: { firstName: true, lastName: true } } } });
+    const org = await prisma.organization.findUnique({ where: { id: args.organizationId }, select: { managersCanVerifyTraining: true } });
+    if (!record || !org || record.verified) return;
+    const verifiers = await prisma.user.findMany({
+      where: { organizationId: args.organizationId, active: true, id: { not: args.actorUserId }, employeeId: { not: record.employeeId }, role: { in: org.managersCanVerifyTraining ? ["ADMIN", "MANAGER"] : ["ADMIN"] } },
+      select: { id: true }, take: 20,
+    });
+    const cache = new RecipientCache(args.organizationId);
+    for (const verifier of verifiers) {
+      await notify({
+        organizationId: args.organizationId, userId: verifier.id, type: "TRAINING_VERIFICATION_NEEDED", title: "Training record needs verification",
+        message: `${record.employee.firstName} ${record.employee.lastName}: ${record.courseName} (${record.provider})`,
+        entity: { type: "TRAINING_RECORD", id: record.id }, actionUrl: notificationLinks.trainingRecord(record.id), dedupeKey: `training-verify:${record.id}`,
+      }, cache);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance
+// ---------------------------------------------------------------------------
+
+/**
+ * Equipment became unavailable. Recipients are targeted: whoever owns an upcoming rental that needs
+ * the asset, plus administrators only when the change was *not* part of a maintenance record
+ * (an unexpected out-of-service). One notification per recipient per asset, status and day.
+ */
+export function notifyEquipmentUnavailable(args: { organizationId: string; equipmentId: string; status: string; actorUserId: string; maintenanceRecordId?: string | null; unexpected?: boolean }) {
+  return notifySafely(async () => {
+    const equipment = await prisma.equipment.findFirst({ where: { id: args.equipmentId, organizationId: args.organizationId }, select: { id: true, assetNumber: true, name: true } });
+    if (!equipment) return;
+    const rentals = await prisma.rental.findMany({
+      where: { organizationId: args.organizationId, status: { in: ["RESERVED", "PREPARING", "READY", "CHECKED_OUT", "PARTIALLY_RETURNED"] }, reservationEnd: { gte: new Date() }, items: { some: { equipmentId: equipment.id, returnedAt: null } } },
+      select: { id: true, rentalNumber: true, reservationStart: true, createdByUserId: true, preparedByEmployeeId: true, checkedOutByEmployeeId: true }, take: 25,
+    });
+    const employeeUsers = await userIdsForEmployees(args.organizationId, rentals.flatMap((r) => [r.preparedByEmployeeId, r.checkedOutByEmployeeId]));
+    const admins = args.unexpected ? await prisma.user.findMany({ where: { organizationId: args.organizationId, active: true, role: "ADMIN" }, select: { id: true }, take: 10 }) : [];
+    const day = new Date().toISOString().slice(0, 10);
+    const label = args.status.toLowerCase().replaceAll("_", " ");
+    const cache = new RecipientCache(args.organizationId);
+    const impacted = new Map<string, string[]>();
+    for (const rental of rentals) {
+      for (const userId of new Set([rental.createdByUserId, employeeUsers.get(rental.preparedByEmployeeId ?? ""), employeeUsers.get(rental.checkedOutByEmployeeId ?? "")].filter((id): id is string => Boolean(id)))) {
+        impacted.set(userId, [...(impacted.get(userId) ?? []), rental.rentalNumber]);
+      }
+    }
+    for (const userId of new Set([...impacted.keys(), ...admins.map((a) => a.id)])) {
+      if (userId === args.actorUserId) continue;
+      const numbers = impacted.get(userId);
+      await notify({
+        organizationId: args.organizationId, userId, type: "EQUIPMENT_UNAVAILABLE", title: `${equipment.assetNumber} is now ${label}`,
+        message: numbers?.length ? `${equipment.name} is needed by rental${numbers.length === 1 ? "" : "s"} ${numbers.join(", ")}. Review the reservation; no substitute is assigned automatically.` : `${equipment.name} was set to ${label}.`,
+        entity: args.maintenanceRecordId ? { type: "MAINTENANCE_RECORD", id: args.maintenanceRecordId } : { type: "EQUIPMENT", id: equipment.id },
+        actionUrl: args.maintenanceRecordId ? notificationLinks.maintenance(args.maintenanceRecordId) : notificationLinks.equipment(equipment.id),
+        dedupeKey: `equipment-unavailable:${equipment.id}:${args.status}:${day}`,
+      }, cache);
+    }
+  });
+}
+
+export function notifyMaintenanceCompleted(args: { organizationId: string; recordId: string; actorUserId: string }) {
+  return notifySafely(async () => {
+    const record = await prisma.maintenanceRecord.findFirst({ where: { id: args.recordId, organizationId: args.organizationId }, include: { equipment: { select: { assetNumber: true, name: true, status: true } } } });
+    if (!record) return;
+    const performer = record.performedByEmployeeId ? (await userIdsForEmployees(args.organizationId, [record.performedByEmployeeId])).get(record.performedByEmployeeId) : undefined;
+    const cache = new RecipientCache(args.organizationId);
+    for (const userId of new Set([record.createdByUserId, performer].filter((id): id is string => Boolean(id)))) {
+      if (userId === args.actorUserId) continue;
+      await notify({
+        organizationId: args.organizationId, userId, type: "MAINTENANCE_COMPLETED", title: "Maintenance completed",
+        message: `${record.equipment.assetNumber} ${record.equipment.name}: ${record.description}. Equipment is now ${record.equipment.status.toLowerCase().replaceAll("_", " ")}.`,
+        entity: { type: "MAINTENANCE_RECORD", id: record.id }, actionUrl: notificationLinks.maintenance(record.id), dedupeKey: `maintenance-completed:${record.id}`,
+      }, cache);
+    }
+  });
+}

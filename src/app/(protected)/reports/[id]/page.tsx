@@ -11,6 +11,7 @@ import { filtersToQuery, hasFilters, parseReportFilters } from "@/modules/report
 import { loadFilterOptions } from "@/modules/reports/options";
 import { getReport } from "@/modules/reports/registry";
 import { prepareReport, runPrepared } from "@/modules/reports/run";
+import { TYPE_LABELS as MAINTENANCE_TYPE_LABELS } from "@/modules/maintenance/validation";
 import { REPORT_PAGE_SIZE, type Cell, type Column } from "@/modules/reports/types";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   const error = typeof query.error === "string" ? query.error : undefined;
   const exportHref = (format: string) => `/reports/${id}/export?${[baseQuery, `format=${format}`].filter(Boolean).join("&")}`;
   const select = (name: string, value: string | undefined, all: string, items: Array<{ id: string; name: string }>) => (
-    <label className="grid gap-1 text-xs font-semibold">{name === "qualificationType" ? "Qualification" : name.charAt(0).toUpperCase() + name.slice(1)}
+    <label className="grid gap-1 text-xs font-semibold">{({ qualificationType: "Qualification", equipmentCategory: "Equipment category" } as Record<string, string>)[name] ?? name.charAt(0).toUpperCase() + name.slice(1)}
       <select className={inputClass} defaultValue={value ?? ""} name={name}><option value="">{all}</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
     </label>
   );
@@ -75,6 +76,10 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           {wants("employee") && options.employees.length ? select("employee", filters.employee, "Any employee", options.employees) : null}
           {wants("project") ? select("project", filters.project, "All projects", options.projects) : null}
           {wants("client") ? select("client", filters.client, "All clients", options.clients) : null}
+          {wants("course") ? select("course", filters.course, "All courses", options.courses) : null}
+          {wants("equipment") ? select("equipment", filters.equipment, "All equipment", options.equipment) : null}
+          {wants("equipmentCategory") ? select("equipmentCategory", filters.equipmentCategory, "All categories", options.equipmentCategories) : null}
+          {wants("maintenanceType") ? <label className="grid gap-1 text-xs font-semibold">Type<select className={inputClass} defaultValue={filters.maintenanceType ?? ""} name="maintenanceType"><option value="">Any type</option>{Object.entries(MAINTENANCE_TYPE_LABELS).map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label> : null}
           {wants("qualificationType") && options.qualificationTypes.length ? select("qualificationType", filters.qualificationType, "All qualifications", options.qualificationTypes) : null}
           <div className="flex gap-2"><button className="cal-btn cal-btn-primary" type="submit">Apply</button><Link className="cal-btn" href={`/reports/${id}`}>Reset</Link></div>
         </form>

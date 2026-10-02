@@ -13,73 +13,90 @@ model SystemHealth {
 }
 
 model Organization {
-  id                                 String                             @id @default(uuid())
-  name                               String                             @unique
-  createdAt                          DateTime                           @default(now())
-  updatedAt                          DateTime                           @updatedAt
-  departments                        Department[]
-  positions                          Position[]
-  employees                          Employee[]
-  qualificationTypes                 QualificationType[]
-  employeeQualifications             EmployeeQualification[]
-  qualificationDocuments             QualificationDocument[]
-  positionQualificationRequirements  PositionQualificationRequirement[]
-  users                              User[]
-  projects                           Project[]
-  projectMembers                     ProjectMember[]
-  projectRoles                       ProjectRole[]
-  projectMilestones                  ProjectMilestone[]
-  projectActivities                  ProjectActivity[]
-  tasks                              Task[]
-  taskComments                       TaskComment[]
-  taskActivities                     TaskActivity[]
-  clients                            Client[]
-  clientContacts                     ClientContact[]
-  clientActivities                   ClientActivity[]
-  equipmentCategories                EquipmentCategory[]
-  equipmentLocations                 EquipmentLocation[]
-  equipment                          Equipment[]
-  rentals                            Rental[]
-  rentalActivities                   RentalActivity[]
-  equipmentPackages                  EquipmentPackage[]
-  qualificationExpirationWarningDays Int                                @default(60)
-  documentCategories                 DocumentCategory[]
-  documents                          Document[]
-  documentVersions                   DocumentVersion[]
-  documentRelations                  DocumentRelation[]
-  documentActivities                 DocumentActivity[]
-  invoices                           Invoice[]
-  invoiceLineItems                   InvoiceLineItem[]
-  payments                           Payment[]
-  invoiceActivities                  InvoiceActivity[]
-  signatureRequests                  SignatureRequest[]
-  signatureSigners                   SignatureSigner[]
-  signatureEvents                    SignatureEvent[]
-  clientPortalUsers                  ClientPortalUser[]
-  clientPortalInvitations            ClientPortalInvitation[]
-  documentPortalShares               DocumentPortalShare[]
-  clientApprovalRequests             ClientApprovalRequest[]
-  portalActivities                   PortalActivity[]
-  invoicePrefix                      String                             @default("INV-")
-  nextInvoiceSequence                Int                                @default(1)
-  defaultCurrency                    String                             @default("USD")
-  defaultPaymentTerms                String?
-  invoiceFooter                      String?
-  billingAddress                     String?
-  timezone                           String                             @default("UTC")
-  taskDueSoonDays                    Int                                @default(7)
-  rentalDueSoonDays                  Int                                @default(3)
-  invoiceDueSoonDays                 Int                                @default(7)
-  notificationArchiveAfterDays       Int                                @default(90)
-  calendarEvents                     CalendarEvent[]
-  notifications                      Notification[]
-  notificationPreferences            NotificationPreference[]
-  nextLedgerSequence                 Int                                @default(1)
-  autoPostPaymentsToLedger           Boolean                            @default(true)
-  ledgerCategories                   LedgerCategory[]
-  ledgerTransactions                 LedgerTransaction[]
-  auditEvents                        AuditEvent[]
-  savedReportFilters                 SavedReportFilter[]
+  id                                     String                             @id @default(uuid())
+  name                                   String                             @unique
+  createdAt                              DateTime                           @default(now())
+  updatedAt                              DateTime                           @updatedAt
+  departments                            Department[]
+  positions                              Position[]
+  employees                              Employee[]
+  qualificationTypes                     QualificationType[]
+  employeeQualifications                 EmployeeQualification[]
+  qualificationDocuments                 QualificationDocument[]
+  positionQualificationRequirements      PositionQualificationRequirement[]
+  users                                  User[]
+  projects                               Project[]
+  projectMembers                         ProjectMember[]
+  projectRoles                           ProjectRole[]
+  projectMilestones                      ProjectMilestone[]
+  projectActivities                      ProjectActivity[]
+  tasks                                  Task[]
+  taskComments                           TaskComment[]
+  taskActivities                         TaskActivity[]
+  clients                                Client[]
+  clientContacts                         ClientContact[]
+  clientActivities                       ClientActivity[]
+  equipmentCategories                    EquipmentCategory[]
+  equipmentLocations                     EquipmentLocation[]
+  equipment                              Equipment[]
+  rentals                                Rental[]
+  rentalActivities                       RentalActivity[]
+  equipmentPackages                      EquipmentPackage[]
+  qualificationExpirationWarningDays     Int                                @default(60)
+  documentCategories                     DocumentCategory[]
+  documents                              Document[]
+  documentVersions                       DocumentVersion[]
+  documentRelations                      DocumentRelation[]
+  documentActivities                     DocumentActivity[]
+  invoices                               Invoice[]
+  invoiceLineItems                       InvoiceLineItem[]
+  payments                               Payment[]
+  invoiceActivities                      InvoiceActivity[]
+  signatureRequests                      SignatureRequest[]
+  signatureSigners                       SignatureSigner[]
+  signatureEvents                        SignatureEvent[]
+  clientPortalUsers                      ClientPortalUser[]
+  clientPortalInvitations                ClientPortalInvitation[]
+  documentPortalShares                   DocumentPortalShare[]
+  clientApprovalRequests                 ClientApprovalRequest[]
+  portalActivities                       PortalActivity[]
+  invoicePrefix                          String                             @default("INV-")
+  nextInvoiceSequence                    Int                                @default(1)
+  defaultCurrency                        String                             @default("USD")
+  defaultPaymentTerms                    String?
+  invoiceFooter                          String?
+  billingAddress                         String?
+  timezone                               String                             @default("UTC")
+  taskDueSoonDays                        Int                                @default(7)
+  rentalDueSoonDays                      Int                                @default(3)
+  invoiceDueSoonDays                     Int                                @default(7)
+  notificationArchiveAfterDays           Int                                @default(90)
+  calendarEvents                         CalendarEvent[]
+  notifications                          Notification[]
+  notificationPreferences                NotificationPreference[]
+  nextLedgerSequence                     Int                                @default(1)
+  autoPostPaymentsToLedger               Boolean                            @default(true)
+  ledgerCategories                       LedgerCategory[]
+  ledgerTransactions                     LedgerTransaction[]
+  auditEvents                            AuditEvent[]
+  savedReportFilters                     SavedReportFilter[]
+  allowTrainingSelfEnrollment            Boolean                            @default(true)
+  managersCanVerifyTraining              Boolean                            @default(false)
+  allowVerifiedQualificationFromTraining Boolean                            @default(false)
+  trainingSessionReminderDays            Int                                @default(2)
+  managersCanManageMaintenance           Boolean                            @default(true)
+  employeesCanReportMaintenance          Boolean                            @default(true)
+  maintenanceDueSoonDays                 Int                                @default(14)
+  maintenanceMeterWarningPercent         Int                                @default(10)
+  autoPostMaintenanceCostToLedger        Boolean                            @default(false)
+  trainingCourses                        TrainingCourse[]
+  trainingCourseQualifications           TrainingCourseQualification[]
+  trainingSessions                       TrainingSession[]
+  trainingEnrollments                    TrainingEnrollment[]
+  employeeTrainingRecords                EmployeeTrainingRecord[]
+  maintenanceRecords                     MaintenanceRecord[]
+  maintenanceSchedules                   MaintenanceSchedule[]
+  meterReadings                          MeterReading[]
 }
 
 model Department {
@@ -114,43 +131,47 @@ model Position {
 }
 
 model Employee {
-  id                 String                  @id @default(uuid())
-  organizationId     String
-  employeeNumber     String?
-  firstName          String
-  preferredName      String?
-  middleName         String?
-  lastName           String
-  suffix             String?
-  workEmail          String?
-  personalEmail      String?
-  workPhone          String?
-  mobilePhone        String?
-  departmentId       String?
-  positionId         String?
-  supervisorId       String?
-  employmentStatus   EmploymentStatus        @default(ACTIVE)
-  hireDate           DateTime?
-  separationDate     DateTime?
-  notes              String?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  department         Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  position           Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  supervisor         Employee?               @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
-  directReports      Employee[]              @relation("EmployeeSupervisor")
-  qualifications     EmployeeQualification[]
-  user               User?
-  managedProjects    Project[]               @relation("ProjectManager")
-  projectMemberships ProjectMember[]
-  assignedTasks      Task[]                  @relation("TaskAssignee")
-  preparedRentals    Rental[]                @relation("RentalPreparer")
-  checkedOutRentals  Rental[]                @relation("RentalCheckoutEmployee")
-  receivedRentals    Rental[]                @relation("RentalReceiver")
-  documentRelations  DocumentRelation[]
-  signatureSigners   SignatureSigner[]
-  calendarEvents     CalendarEvent[]
+  id                   String                   @id @default(uuid())
+  organizationId       String
+  employeeNumber       String?
+  firstName            String
+  preferredName        String?
+  middleName           String?
+  lastName             String
+  suffix               String?
+  workEmail            String?
+  personalEmail        String?
+  workPhone            String?
+  mobilePhone          String?
+  departmentId         String?
+  positionId           String?
+  supervisorId         String?
+  employmentStatus     EmploymentStatus         @default(ACTIVE)
+  hireDate             DateTime?
+  separationDate       DateTime?
+  notes                String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  organization         Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  department           Department?              @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position             Position?                @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  supervisor           Employee?                @relation("EmployeeSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  directReports        Employee[]               @relation("EmployeeSupervisor")
+  qualifications       EmployeeQualification[]
+  user                 User?
+  managedProjects      Project[]                @relation("ProjectManager")
+  projectMemberships   ProjectMember[]
+  assignedTasks        Task[]                   @relation("TaskAssignee")
+  preparedRentals      Rental[]                 @relation("RentalPreparer")
+  checkedOutRentals    Rental[]                 @relation("RentalCheckoutEmployee")
+  receivedRentals      Rental[]                 @relation("RentalReceiver")
+  documentRelations    DocumentRelation[]
+  signatureSigners     SignatureSigner[]
+  calendarEvents       CalendarEvent[]
+  trainingEnrollments  TrainingEnrollment[]
+  trainingRecords      EmployeeTrainingRecord[]
+  performedMaintenance MaintenanceRecord[]
+  responsibleSchedules MaintenanceSchedule[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, employmentStatus])
@@ -461,13 +482,14 @@ model QualificationType {
   organization             Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   employeeQualifications   EmployeeQualification[]
   positionRequirements     PositionQualificationRequirement[]
+  trainingCourseLinks      TrainingCourseQualification[]
 
   @@unique([organizationId, name])
   @@index([organizationId, active])
 }
 
 model EmployeeQualification {
-  id                  String                  @id @default(uuid())
+  id                  String                   @id @default(uuid())
   organizationId      String
   employeeId          String
   qualificationTypeId String
@@ -475,19 +497,21 @@ model EmployeeQualification {
   issuingOrganization String?
   issueDate           DateTime?
   expirationDate      DateTime?
-  verificationStatus  VerificationStatus      @default(UNVERIFIED)
+  verificationStatus  VerificationStatus       @default(UNVERIFIED)
   verifiedAt          DateTime?
   verifiedByUserId    String?
   verificationNote    String?
   notes               String?
   archivedAt          DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  qualificationType   QualificationType       @relation(fields: [qualificationTypeId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee            Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  qualificationType   QualificationType        @relation(fields: [qualificationTypeId], references: [id], onDelete: Restrict)
   documents           QualificationDocument[]
   documentRelations   DocumentRelation[]
+  trainingEnrollments TrainingEnrollment[]
+  trainingRecords     EmployeeTrainingRecord[]
 
   @@index([organizationId, expirationDate])
   @@index([employeeId, qualificationTypeId])
@@ -588,6 +612,8 @@ model User {
   createdLedgerTransactions LedgerTransaction[]      @relation("LedgerCreator")
   voidedLedgerTransactions  LedgerTransaction[]      @relation("LedgerVoider")
   savedReportFilters        SavedReportFilter[]
+  createdTrainingSessions   TrainingSession[]        @relation("TrainingSessionCreator")
+  createdMaintenance        MaintenanceRecord[]      @relation("MaintenanceCreator")
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -638,34 +664,38 @@ model EquipmentLocation {
 }
 
 model Equipment {
-  id                 String              @id @default(uuid())
-  organizationId     String
-  assetNumber        String
-  name               String
-  description        String?
-  categoryId         String?
-  manufacturer       String?
-  model              String?
-  serialNumber       String?
-  status             EquipmentStatus     @default(AVAILABLE)
-  condition          EquipmentCondition  @default(GOOD)
-  purchaseDate       DateTime?
-  purchaseCost       Decimal?            @db.Decimal(12, 2)
-  replacementValue   Decimal?            @db.Decimal(12, 2)
-  defaultRentalRate  Decimal?            @db.Decimal(12, 2)
-  rateUnit           RentalRateUnit?
-  rentable           Boolean             @default(true)
-  active             Boolean             @default(true)
-  locationId         String?
-  notes              String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  category           EquipmentCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  location           EquipmentLocation?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  rentalItems        RentalItem[]
-  documentRelations  DocumentRelation[]
-  ledgerTransactions LedgerTransaction[]
+  id                   String                @id @default(uuid())
+  organizationId       String
+  assetNumber          String
+  name                 String
+  description          String?
+  categoryId           String?
+  manufacturer         String?
+  model                String?
+  serialNumber         String?
+  status               EquipmentStatus       @default(AVAILABLE)
+  condition            EquipmentCondition    @default(GOOD)
+  purchaseDate         DateTime?
+  purchaseCost         Decimal?              @db.Decimal(12, 2)
+  replacementValue     Decimal?              @db.Decimal(12, 2)
+  defaultRentalRate    Decimal?              @db.Decimal(12, 2)
+  rateUnit             RentalRateUnit?
+  rentable             Boolean               @default(true)
+  active               Boolean               @default(true)
+  locationId           String?
+  notes                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category             EquipmentCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  location             EquipmentLocation?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  rentalItems          RentalItem[]
+  documentRelations    DocumentRelation[]
+  ledgerTransactions   LedgerTransaction[]
+  meterUnit            MeterUnit?
+  maintenanceRecords   MaintenanceRecord[]
+  maintenanceSchedules MaintenanceSchedule[]
+  meterReadings        MeterReading[]
 
   @@unique([organizationId, assetNumber])
   @@index([organizationId, status, active, rentable])
@@ -912,7 +942,7 @@ model DocumentVersion {
 /// Explicit nullable foreign keys keep attachment targets type-safe and auditable.
 /// Application validation requires exactly one target and verifies its organization.
 model DocumentRelation {
-  id                      String                 @id @default(uuid())
+  id                      String                  @id @default(uuid())
   organizationId          String
   documentId              String
   employeeId              String?
@@ -922,16 +952,24 @@ model DocumentRelation {
   clientId                String?
   rentalId                String?
   equipmentId             String?
-  createdAt               DateTime               @default(now())
-  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  document                Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  employee                Employee?              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  employeeQualification   EmployeeQualification? @relation(fields: [employeeQualificationId], references: [id], onDelete: Cascade)
-  project                 Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  task                    Task?                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  client                  Client?                @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  rental                  Rental?                @relation(fields: [rentalId], references: [id], onDelete: Cascade)
-  equipment               Equipment?             @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  createdAt               DateTime                @default(now())
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document                Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee                Employee?               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeQualification   EmployeeQualification?  @relation(fields: [employeeQualificationId], references: [id], onDelete: Cascade)
+  project                 Project?                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task                    Task?                   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client                  Client?                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rental                  Rental?                 @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  equipment               Equipment?              @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  trainingCourseId        String?
+  trainingSessionId       String?
+  trainingRecordId        String?
+  maintenanceRecordId     String?
+  trainingCourse          TrainingCourse?         @relation(fields: [trainingCourseId], references: [id], onDelete: Cascade)
+  trainingSession         TrainingSession?        @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  trainingRecord          EmployeeTrainingRecord? @relation(fields: [trainingRecordId], references: [id], onDelete: Cascade)
+  maintenanceRecord       MaintenanceRecord?      @relation(fields: [maintenanceRecordId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, documentId])
   @@index([organizationId, employeeId])
@@ -941,6 +979,9 @@ model DocumentRelation {
   @@index([organizationId, clientId])
   @@index([organizationId, rentalId])
   @@index([organizationId, equipmentId])
+  @@index([organizationId, trainingRecordId])
+  @@index([organizationId, trainingSessionId])
+  @@index([organizationId, maintenanceRecordId])
 }
 
 model DocumentActivity {
@@ -1556,6 +1597,8 @@ enum NotificationCategory {
   APPROVALS
   PROJECT_UPDATES
   DOCUMENTS
+  TRAINING
+  MAINTENANCE
 }
 
 enum NotificationType {
@@ -1574,6 +1617,14 @@ enum NotificationType {
   CLIENT_RESPONSE_RECEIVED
   PROJECT_MEMBER_ADDED
   DOCUMENT_SHARED
+  TRAINING_ENROLLED
+  TRAINING_SESSION_REMINDER
+  TRAINING_SESSION_CHANGED
+  TRAINING_VERIFICATION_NEEDED
+  MAINTENANCE_DUE_SOON
+  MAINTENANCE_OVERDUE
+  MAINTENANCE_COMPLETED
+  EQUIPMENT_UNAVAILABLE
 }
 
 enum NotificationEntityType {
@@ -1585,6 +1636,10 @@ enum NotificationEntityType {
   SIGNATURE_REQUEST
   CLIENT_APPROVAL_REQUEST
   DOCUMENT
+  TRAINING_SESSION
+  TRAINING_RECORD
+  MAINTENANCE_RECORD
+  EQUIPMENT
 }
 
 enum NotificationChannel {
@@ -1670,39 +1725,41 @@ model LedgerCategory {
 /// positive; an ADJUSTMENT is signed (positive raises, negative lowers net recorded activity).
 /// Transactions are voided, never deleted.
 model LedgerTransaction {
-  id                String                @id @default(uuid())
-  organizationId    String
-  transactionNumber String?
-  type              LedgerTransactionType
-  transactionDate   DateTime              @db.Date
-  description       String
-  amount            Decimal               @db.Decimal(14, 2)
-  currency          String                @default("USD") @db.VarChar(3)
-  categoryId        String?
-  clientId          String?
-  projectId         String?
-  rentalId          String?
-  invoiceId         String?
-  paymentId         String?               @unique
-  equipmentId       String?
-  reference         String?
-  notes             String?
-  createdByUserId   String
-  voidedAt          DateTime?
-  voidedByUserId    String?
-  voidReason        String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  category          LedgerCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  client            Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  project           Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  rental            Rental?               @relation(fields: [rentalId], references: [id], onDelete: SetNull)
-  invoice           Invoice?              @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  payment           Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  equipment         Equipment?            @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
-  createdBy         User                  @relation("LedgerCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  voidedBy          User?                 @relation("LedgerVoider", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+  id                  String                @id @default(uuid())
+  organizationId      String
+  transactionNumber   String?
+  type                LedgerTransactionType
+  transactionDate     DateTime              @db.Date
+  description         String
+  amount              Decimal               @db.Decimal(14, 2)
+  currency            String                @default("USD") @db.VarChar(3)
+  categoryId          String?
+  clientId            String?
+  projectId           String?
+  rentalId            String?
+  invoiceId           String?
+  paymentId           String?               @unique
+  equipmentId         String?
+  reference           String?
+  notes               String?
+  createdByUserId     String
+  voidedAt            DateTime?
+  voidedByUserId      String?
+  voidReason          String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category            LedgerCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  client              Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project             Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rental              Rental?               @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  invoice             Invoice?              @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  payment             Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  equipment           Equipment?            @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  createdBy           User                  @relation("LedgerCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  voidedBy            User?                 @relation("LedgerVoider", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+  maintenanceRecordId String?               @unique
+  maintenanceRecord   MaintenanceRecord?    @relation(fields: [maintenanceRecordId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, transactionNumber])
   @@index([organizationId, transactionDate])
@@ -1754,4 +1811,285 @@ model SavedReportFilter {
 
   @@unique([userId, reportId, name])
   @@index([organizationId, userId, reportId])
+}
+
+// ---------------------------------------------------------------------------
+// Training
+// ---------------------------------------------------------------------------
+
+enum TrainingDeliveryMethod {
+  IN_PERSON
+  VIRTUAL
+  ONLINE_SELF_PACED
+  BLENDED
+  OTHER
+}
+
+enum TrainingSessionStatus {
+  PLANNED
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum TrainingEnrollmentStatus {
+  ENROLLED
+  ATTENDED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+/// What completing a course may do to qualifications. NONE is the conservative default.
+enum TrainingQualificationEffect {
+  NONE
+  SUGGEST
+  CREATE_UNVERIFIED
+  CREATE_VERIFIED
+}
+
+/// A reusable course definition. Not a qualification: it records what can be taken, not what is held.
+model TrainingCourse {
+  id                   String                        @id @default(uuid())
+  organizationId       String
+  name                 String
+  code                 String?
+  description          String?
+  provider             String?
+  defaultDurationHours Decimal?                      @db.Decimal(6, 2)
+  deliveryMethod       TrainingDeliveryMethod?
+  active               Boolean                       @default(true)
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+  organization         Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  qualificationLinks   TrainingCourseQualification[]
+  sessions             TrainingSession[]
+  records              EmployeeTrainingRecord[]
+  documentRelations    DocumentRelation[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId, active])
+}
+
+model TrainingCourseQualification {
+  id                  String                      @id @default(uuid())
+  organizationId      String
+  trainingCourseId    String
+  qualificationTypeId String
+  effect              TrainingQualificationEffect @default(SUGGEST)
+  createdAt           DateTime                    @default(now())
+  organization        Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trainingCourse      TrainingCourse              @relation(fields: [trainingCourseId], references: [id], onDelete: Cascade)
+  qualificationType   QualificationType           @relation(fields: [qualificationTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([trainingCourseId, qualificationTypeId])
+  @@index([organizationId, qualificationTypeId])
+}
+
+model TrainingSession {
+  id                String                @id @default(uuid())
+  organizationId    String
+  trainingCourseId  String
+  titleOverride     String?
+  startAt           DateTime
+  endAt             DateTime?
+  location          String?
+  instructor        String?
+  providerOverride  String?
+  maxParticipants   Int?
+  notes             String?
+  status            TrainingSessionStatus @default(PLANNED)
+  createdByUserId   String
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trainingCourse    TrainingCourse        @relation(fields: [trainingCourseId], references: [id], onDelete: Restrict)
+  createdBy         User                  @relation("TrainingSessionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  enrollments       TrainingEnrollment[]
+  documentRelations DocumentRelation[]
+
+  @@index([organizationId, startAt])
+  @@index([organizationId, status, startAt])
+  @@index([trainingCourseId])
+}
+
+model TrainingEnrollment {
+  id                      String                   @id @default(uuid())
+  organizationId          String
+  trainingSessionId       String
+  employeeId              String
+  status                  TrainingEnrollmentStatus @default(ENROLLED)
+  completionDate          DateTime?                @db.Date
+  hoursCompleted          Decimal?                 @db.Decimal(6, 2)
+  score                   Decimal?                 @db.Decimal(6, 2)
+  passed                  Boolean?
+  notes                   String?
+  employeeQualificationId String?
+  enrolledByUserId        String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trainingSession         TrainingSession          @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  employee                Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeQualification   EmployeeQualification?   @relation(fields: [employeeQualificationId], references: [id], onDelete: SetNull)
+
+  @@unique([trainingSessionId, employeeId])
+  @@index([organizationId, employeeId, status])
+  @@index([organizationId, completionDate])
+}
+
+/// Training completed outside ArcadiaOne, or recorded without a scheduled session.
+model EmployeeTrainingRecord {
+  id                      String                 @id @default(uuid())
+  organizationId          String
+  employeeId              String
+  trainingCourseId        String?
+  courseName              String
+  provider                String
+  completionDate          DateTime               @db.Date
+  hours                   Decimal?               @db.Decimal(6, 2)
+  certificateNumber       String?
+  notes                   String?
+  verified                Boolean                @default(false)
+  verifiedByUserId        String?
+  verifiedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectedByUserId        String?
+  rejectionReason         String?
+  employeeQualificationId String?
+  submittedByUserId       String
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee                Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  trainingCourse          TrainingCourse?        @relation(fields: [trainingCourseId], references: [id], onDelete: SetNull)
+  employeeQualification   EmployeeQualification? @relation(fields: [employeeQualificationId], references: [id], onDelete: SetNull)
+  documentRelations       DocumentRelation[]
+
+  @@index([organizationId, employeeId, completionDate])
+  @@index([organizationId, verified, rejectedAt])
+  @@index([organizationId, completionDate])
+}
+
+// ---------------------------------------------------------------------------
+// Equipment maintenance
+// ---------------------------------------------------------------------------
+
+enum MaintenanceType {
+  INSPECTION
+  PREVENTIVE
+  REPAIR
+  DAMAGE
+  CALIBRATION
+  SOFTWARE_FIRMWARE
+  OTHER
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum InspectionResult {
+  PASS
+  FAIL
+}
+
+enum MeterUnit {
+  HOURS
+  MILES
+  CYCLES
+}
+
+/// Work done to, or needed by, one piece of equipment. Distinct from Rental, which records who has it.
+model MaintenanceRecord {
+  id                     String               @id @default(uuid())
+  organizationId         String
+  equipmentId            String
+  scheduleId             String?
+  type                   MaintenanceType
+  status                 MaintenanceStatus    @default(OPEN)
+  openedAt               DateTime             @default(now())
+  completedAt            DateTime?
+  performedByEmployeeId  String?
+  vendorName             String?
+  description            String
+  workPerformed          String?
+  cost                   Decimal?             @db.Decimal(12, 2)
+  meterReading           Decimal?             @db.Decimal(12, 1)
+  nextServiceDate        DateTime?            @db.Date
+  nextServiceMeter       Decimal?             @db.Decimal(12, 1)
+  notes                  String?
+  inspectionResult       InspectionResult?
+  conditionFound         EquipmentCondition?
+  /// Unavailability this record itself caused (MAINTENANCE or OUT_OF_SERVICE), for downtime reporting.
+  equipmentStatusApplied EquipmentStatus?
+  unavailableAt          DateTime?
+  returnedToServiceAt    DateTime?
+  createdByUserId        String
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  equipment              Equipment            @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  schedule               MaintenanceSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  performedBy            Employee?            @relation(fields: [performedByEmployeeId], references: [id], onDelete: SetNull)
+  createdBy              User                 @relation("MaintenanceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  documentRelations      DocumentRelation[]
+  meterReadings          MeterReading[]
+  ledgerTransaction      LedgerTransaction?
+
+  @@index([organizationId, status, openedAt])
+  @@index([organizationId, equipmentId, openedAt])
+  @@index([organizationId, completedAt])
+  @@index([organizationId, type])
+}
+
+/// A recurring service expectation for one asset, by date interval, meter interval, or both.
+model MaintenanceSchedule {
+  id                    String              @id @default(uuid())
+  organizationId        String
+  equipmentId           String
+  type                  MaintenanceType
+  title                 String?
+  intervalDays          Int?
+  intervalMonths        Int?
+  intervalMeter         Decimal?            @db.Decimal(12, 1)
+  lastServiceDate       DateTime?           @db.Date
+  lastServiceMeter      Decimal?            @db.Decimal(12, 1)
+  nextServiceDate       DateTime?           @db.Date
+  nextServiceMeter      Decimal?            @db.Decimal(12, 1)
+  responsibleEmployeeId String?
+  active                Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  organization          Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  equipment             Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  responsibleEmployee   Employee?           @relation(fields: [responsibleEmployeeId], references: [id], onDelete: SetNull)
+  records               MaintenanceRecord[]
+
+  @@index([organizationId, active, nextServiceDate])
+  @@index([organizationId, equipmentId])
+}
+
+/// A usage reading (hours, miles or cycles). The unit lives on Equipment.meterUnit; equipment with no unit has no meter.
+model MeterReading {
+  id                  String             @id @default(uuid())
+  organizationId      String
+  equipmentId         String
+  reading             Decimal            @db.Decimal(12, 1)
+  recordedAt          DateTime           @default(now())
+  recordedByUserId    String
+  maintenanceRecordId String?
+  notes               String?
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  equipment           Equipment          @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  maintenanceRecord   MaintenanceRecord? @relation(fields: [maintenanceRecordId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, equipmentId, recordedAt(sort: Desc)])
 }

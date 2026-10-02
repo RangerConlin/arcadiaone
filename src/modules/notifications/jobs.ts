@@ -1,6 +1,7 @@
 import { addDays, dateKeyUtc, diffDays, keyToDate, resolveTimeZone, todayKey } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
 import { notificationLinks } from "./links";
+import { evaluateDue } from "@/modules/maintenance/due";
 import { archiveOldNotifications, notify, RecipientCache, userIdsForEmployees, type NotifyInput } from "./service";
 
 /**
@@ -42,6 +43,9 @@ type OrgSettings = {
   invoiceDueSoonDays: number;
   qualificationExpirationWarningDays: number;
   notificationArchiveAfterDays: number;
+  maintenanceDueSoonDays: number;
+  maintenanceMeterWarningPercent: number;
+  trainingSessionReminderDays: number;
 };
 
 /** Drops candidates whose key already exists with one query per batch instead of one write each. */
@@ -200,6 +204,62 @@ async function invoiceCandidates(org: OrgSettings, today: string): Promise<Candi
   return candidates;
 }
 
+
+/** Upcoming training: one reminder per enrolled participant per scheduled start (a changed start earns a new one). */
+async function trainingCandidates(org: OrgSettings, now: Date): Promise<Candidate[]> {
+  if (org.trainingSessionReminderDays <= 0) return [];
+  const horizon = new Date(now.getTime() + org.trainingSessionReminderDays * 86_400_000);
+  const sessions = await prisma.trainingSession.findMany({
+    where: { organizationId: org.id, status: { in: ["PLANNED", "OPEN"] }, startAt: { gt: now, lte: horizon } },
+    select: { id: true, titleOverride: true, startAt: true, location: true, trainingCourse: { select: { name: true } }, enrollments: { where: { status: "ENROLLED" }, select: { employeeId: true } } },
+  });
+  const users = await userIdsForEmployees(org.id, sessions.flatMap((s) => s.enrollments.map((e) => e.employeeId)));
+  const candidates: Candidate[] = [];
+  for (const session of sessions) {
+    for (const enrollment of session.enrollments) {
+      const userId = users.get(enrollment.employeeId);
+      if (!userId) continue;
+      candidates.push({
+        organizationId: org.id, userId, type: "TRAINING_SESSION_REMINDER", title: "Training coming up",
+        message: `${session.titleOverride ?? session.trainingCourse.name} starts ${session.startAt.toISOString().slice(0, 16).replace("T", " ")} UTC${session.location ? ` at ${session.location}` : ""}.`,
+        entity: { type: "TRAINING_SESSION", id: session.id }, actionUrl: notificationLinks.trainingSession(session.id),
+        dedupeKey: `training-reminder:${session.id}:${enrollment.employeeId}:${session.startAt.toISOString()}`,
+      });
+    }
+  }
+  return candidates;
+}
+
+/** Service schedules that are near or past due. Targets the responsible person, else administrators. */
+async function maintenanceCandidates(org: OrgSettings, today: string): Promise<Candidate[]> {
+  const schedules = await prisma.maintenanceSchedule.findMany({
+    where: { organizationId: org.id, active: true, equipment: { active: true }, OR: [{ nextServiceDate: { not: null } }, { nextServiceMeter: { not: null } }] },
+    select: { id: true, type: true, title: true, nextServiceDate: true, nextServiceMeter: true, intervalMeter: true, equipmentId: true, responsibleEmployeeId: true, equipment: { select: { assetNumber: true, name: true } } },
+  });
+  if (!schedules.length) return [];
+  const meters = await prisma.meterReading.findMany({ where: { organizationId: org.id, equipmentId: { in: schedules.map((s) => s.equipmentId) } }, orderBy: [{ recordedAt: "desc" }, { reading: "desc" }], distinct: ["equipmentId"], select: { equipmentId: true, reading: true } });
+  const current = new Map(meters.map((m) => [m.equipmentId, m.reading]));
+  const responsible = await userIdsForEmployees(org.id, schedules.map((s) => s.responsibleEmployeeId));
+  const admins = await prisma.user.findMany({ where: { organizationId: org.id, active: true, role: "ADMIN" }, select: { id: true }, take: 10 });
+  const candidates: Candidate[] = [];
+  for (const schedule of schedules) {
+    const due = evaluateDue({ nextServiceDate: schedule.nextServiceDate, nextServiceMeter: schedule.nextServiceMeter, intervalMeter: schedule.intervalMeter, currentMeter: current.get(schedule.equipmentId) ?? null, today, dueSoonDays: org.maintenanceDueSoonDays, meterWarningPercent: org.maintenanceMeterWarningPercent });
+    if (due.state === "OK") continue;
+    const overdue = due.state === "OVERDUE";
+    const target = `${schedule.nextServiceDate ? dateKeyUtc(schedule.nextServiceDate) : "-"}|${schedule.nextServiceMeter?.toString() ?? "-"}`;
+    const owner = schedule.responsibleEmployeeId ? responsible.get(schedule.responsibleEmployeeId) : undefined;
+    for (const userId of new Set(owner ? [owner] : admins.map((a) => a.id))) {
+      candidates.push({
+        organizationId: org.id, userId, entity: { type: "EQUIPMENT", id: schedule.equipmentId }, actionUrl: notificationLinks.equipment(schedule.equipmentId),
+        type: overdue ? "MAINTENANCE_OVERDUE" : "MAINTENANCE_DUE_SOON", title: overdue ? "Maintenance overdue" : due.state === "DUE" ? "Maintenance due" : "Maintenance due soon",
+        message: `${schedule.equipment.assetNumber} ${schedule.equipment.name}: ${schedule.title ?? schedule.type.toLowerCase().replace("_", " ")} — ${due.reasons.join("; ")}.`,
+        dedupeKey: `${overdue ? "maintenance-overdue" : "maintenance-due-soon"}:${schedule.id}:${target}`,
+      });
+    }
+  }
+  return candidates;
+}
+
 export async function runNotificationJobs(options: { now?: Date; organizationId?: string; log?: (line: string) => void } = {}): Promise<JobSummary> {
   const now = options.now ?? new Date();
   const summary: JobSummary = { organizations: 0, created: {}, alreadyNotified: 0, skipped: 0, archived: 0 };
@@ -208,6 +268,7 @@ export async function runNotificationJobs(options: { now?: Date; organizationId?
     select: {
       id: true, timezone: true, taskDueSoonDays: true, rentalDueSoonDays: true, invoiceDueSoonDays: true,
       qualificationExpirationWarningDays: true, notificationArchiveAfterDays: true,
+      maintenanceDueSoonDays: true, maintenanceMeterWarningPercent: true, trainingSessionReminderDays: true,
     },
   });
   for (const row of organizations) {
@@ -219,6 +280,7 @@ export async function runNotificationJobs(options: { now?: Date; organizationId?
       for (const build of [
         () => taskCandidates(org, today), () => qualificationCandidates(org, today),
         () => rentalCandidates(org, now), () => invoiceCandidates(org, today),
+        () => trainingCandidates(org, now), () => maintenanceCandidates(org, today),
       ]) {
         await emit(org, await build(), cache, summary);
       }

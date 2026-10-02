@@ -28,6 +28,7 @@ export type NewTransaction = {
   rentalId?: string | null;
   invoiceId?: string | null;
   paymentId?: string | null;
+  maintenanceRecordId?: string | null;
   equipmentId?: string | null;
   reference?: string | null;
   notes?: string | null;
@@ -48,7 +49,7 @@ export async function createLedgerTransaction(tx: Tx, organizationId: string, ac
       type: data.type, transactionDate: data.transactionDate, description: data.description, amount: data.amount,
       currency: (data.currency ?? organization.defaultCurrency).toUpperCase(),
       categoryId: data.categoryId ?? null, clientId: data.clientId ?? null, projectId: data.projectId ?? null,
-      rentalId: data.rentalId ?? null, invoiceId: data.invoiceId ?? null, paymentId: data.paymentId ?? null,
+      rentalId: data.rentalId ?? null, invoiceId: data.invoiceId ?? null, paymentId: data.paymentId ?? null, maintenanceRecordId: data.maintenanceRecordId ?? null,
       equipmentId: data.equipmentId ?? null, reference: data.reference ?? null, notes: data.notes ?? null,
     },
   });

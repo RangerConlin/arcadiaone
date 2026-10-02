@@ -3,14 +3,14 @@ import { addDays, resolveTimeZone } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
 import {
   approvalItems, buildContext, eventItems, invoiceItems, milestoneItems, projectItems,
-  qualificationItems, rentalItems, signatureItems, taskItems, type SourceContext,
+  maintenanceItems, qualificationItems, rentalItems, signatureItems, taskItems, trainingItems, type SourceContext,
 } from "./sources";
 import { calendarRange, type CalendarFilters, type CalendarItem, type CalendarItemType, type CalendarRange } from "./types";
 
 const SOURCES: Record<CalendarItemType, (ctx: SourceContext) => Promise<CalendarItem[]>> = {
   PROJECT: projectItems, MILESTONE: milestoneItems, TASK: taskItems, RENTAL: rentalItems,
   QUALIFICATION: qualificationItems, INVOICE: invoiceItems, SIGNATURE: signatureItems,
-  APPROVAL: approvalItems, EVENT: eventItems,
+  APPROVAL: approvalItems, TRAINING: trainingItems, MAINTENANCE: maintenanceItems, EVENT: eventItems,
 };
 
 export type CalendarResult = {

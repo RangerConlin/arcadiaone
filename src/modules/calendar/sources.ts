@@ -9,6 +9,7 @@ import { projectVisibilityWhere } from "@/modules/projects/authorization";
 import { getQualificationStatus } from "@/modules/qualifications/status";
 import { CLOSED_TASK_STATUSES } from "@/modules/tasks/constants";
 import { taskVisibilityWhere } from "@/modules/tasks/authorization";
+import { sessionVisibilityWhere } from "@/modules/training/authorization";
 import { calendarEventVisibilityWhere, signatureVisibilityWhere } from "./authorization";
 import type { CalendarItem, CalendarRange } from "./types";
 
@@ -398,4 +399,52 @@ export async function eventItems(ctx: SourceContext): Promise<CalendarItem[]> {
       return event.allDay ? dateOnly(base, event.startAt, event.endAt) : timed(base, ctx, event.startAt, event.endAt);
     })
     .filter((item) => item.startKey < dayEndExclusive && item.endKey >= dayStart);
+}
+
+/** Training sessions come straight from TrainingSession; employees only see sessions they are in or that are open. */
+export async function trainingItems(ctx: SourceContext): Promise<CalendarItem[]> {
+  if (ctx.projectId || ctx.clientId) return [];
+  const sessions = await prisma.trainingSession.findMany({
+    where: {
+      AND: [
+        sessionVisibilityWhere(ctx.user),
+        ctx.showCompleted ? {} : { status: { in: ["PLANNED", "OPEN"] } },
+        { startAt: { lt: ctx.instantTo }, OR: [{ endAt: { gte: ctx.instantFrom } }, { endAt: null, startAt: { gte: ctx.instantFrom } }] },
+        ...(hasEmployeeFilter(ctx) ? [{ enrollments: { some: { status: { not: "CANCELLED" as const }, employee: employeeConditions(ctx) } } }] : []),
+      ],
+    },
+    include: { trainingCourse: { select: { name: true } }, _count: { select: { enrollments: { where: { status: { not: "CANCELLED" } } } } } },
+    take: PER_SOURCE_LIMIT,
+  });
+  return sessions.map((session) =>
+    timed({
+      key: `training:${session.id}`, type: "TRAINING", kind: "Training session", title: session.titleOverride ?? session.trainingCourse.name, href: `/training/sessions/${session.id}`,
+      status: session.status, closed: session.status === "CANCELLED" || session.status === "COMPLETED", assigneeName: session.instructor,
+      detail: [session.location, `${session._count.enrollments}${session.maxParticipants ? `/${session.maxParticipants}` : ""} enrolled`].filter(Boolean).join(" · "),
+    }, ctx, session.startAt, session.endAt),
+  );
+}
+
+/** Next service dates come from active MaintenanceSchedule rows; nothing is copied into CalendarEvent. */
+export async function maintenanceItems(ctx: SourceContext): Promise<CalendarItem[]> {
+  if (ctx.projectId || ctx.clientId || ctx.departmentId) return [];
+  const staff = ctx.user.role !== "EMPLOYEE";
+  if (!staff && !ctx.user.employeeId) return [];
+  const schedules = await prisma.maintenanceSchedule.findMany({
+    where: {
+      organizationId: ctx.user.organizationId, active: true, nextServiceDate: dateWindow(ctx), equipment: { active: true },
+      ...(staff ? {} : { responsibleEmployeeId: ctx.user.employeeId! }),
+      ...(ctx.employeeId ? { responsibleEmployeeId: ctx.employeeId } : {}),
+    },
+    include: { equipment: { select: { assetNumber: true, name: true } }, responsibleEmployee: true },
+    take: PER_SOURCE_LIMIT,
+  });
+  const today = dateKeyInZone(ctx.now, ctx.zone);
+  return schedules.map((schedule) =>
+    dateOnly({
+      key: `maintenance:${schedule.id}`, type: "MAINTENANCE", kind: "Service due", title: `${schedule.equipment.assetNumber} ${schedule.title ?? "service"} due`,
+      href: `/rentals/equipment/${schedule.equipmentId}`, status: dateKeyUtc(schedule.nextServiceDate!) < today ? "OVERDUE" : "SCHEDULED",
+      overdue: dateKeyUtc(schedule.nextServiceDate!) < today, assigneeName: personName(schedule.responsibleEmployee), detail: schedule.equipment.name,
+    }, schedule.nextServiceDate!),
+  );
 }

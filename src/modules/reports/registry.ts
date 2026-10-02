@@ -3,11 +3,13 @@ import { clientReports } from "./defs/clients";
 import { financeReports } from "./defs/finance";
 import { peopleReports } from "./defs/people";
 import { rentalReports } from "./defs/rentals";
+import { maintenanceReports } from "./defs/maintenance";
 import { systemReports } from "./defs/system";
+import { trainingReports } from "./defs/training";
 import { workReports } from "./defs/work";
 import { REPORT_CATEGORIES, type ReportDefinition } from "./types";
 
-export const ALL_REPORTS: ReportDefinition[] = [...peopleReports, ...workReports, ...clientReports, ...rentalReports, ...financeReports, ...systemReports];
+export const ALL_REPORTS: ReportDefinition[] = [...peopleReports, ...workReports, ...clientReports, ...trainingReports, ...rentalReports, ...maintenanceReports, ...financeReports, ...systemReports];
 const BY_ID = new Map(ALL_REPORTS.map((report) => [report.id, report]));
 
 export const getReport = (id: string) => BY_ID.get(id);

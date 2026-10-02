@@ -16,6 +16,16 @@ export default function AdministrationPage() {
           title="Departments"
         />
         <AdminCard
+          description="Define reusable training courses and, optionally, how completing them relates to qualifications."
+          href="/administration/training-courses"
+          title="Training courses"
+        />
+        <AdminCard
+          description="Training verification and enrollment policy, maintenance permissions and due-soon thresholds."
+          href="/administration/lifecycle"
+          title="Training and maintenance settings"
+        />
+        <AdminCard
           description="Review who changed what, and when, across security and business-critical records."
           href="/administration/audit"
           title="Audit log"

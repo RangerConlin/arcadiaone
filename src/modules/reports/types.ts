@@ -6,7 +6,9 @@ export const REPORT_CATEGORIES = [
   { id: "projects", label: "Projects" },
   { id: "tasks", label: "Tasks" },
   { id: "clients", label: "Clients" },
+  { id: "training", label: "Training" },
   { id: "rentals", label: "Rentals and equipment" },
+  { id: "maintenance", label: "Equipment maintenance" },
   { id: "financial", label: "Invoices and financial" },
   { id: "system", label: "System and audit" },
 ] as const;
@@ -27,12 +29,12 @@ export type ReportResult = {
   notes?: string[];
 };
 
-export const FILTER_KEYS = ["dateRange", "department", "position", "employee", "project", "client", "status", "qualificationType", "days"] as const;
+export const FILTER_KEYS = ["dateRange", "department", "position", "employee", "project", "client", "status", "qualificationType", "days", "course", "equipment", "equipmentCategory", "maintenanceType"] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 
 export type ReportFilters = {
   from?: string; to?: string; department?: string; position?: string; employee?: string; project?: string; client?: string;
-  status?: string; qualificationType?: string; days?: number;
+  status?: string; qualificationType?: string; days?: number; course?: string; equipment?: string; equipmentCategory?: string; maintenanceType?: string;
 };
 
 export type ReportContext = {

@@ -9,7 +9,7 @@ import { projectVisibilityWhere } from "@/modules/projects/authorization";
 import { taskVisibilityWhere } from "@/modules/tasks/authorization";
 import { clientVisibilityWhere } from "@/modules/clients/authorization";
 
-export const relationFields = ["employeeId","employeeQualificationId","projectId","taskId","clientId","rentalId","equipmentId"] as const;
+export const relationFields = ["employeeId","employeeQualificationId","projectId","taskId","clientId","rentalId","equipmentId","trainingCourseId","trainingSessionId","trainingRecordId","maintenanceRecordId"] as const;
 export type RelationField = typeof relationFields[number];
 
 export async function validateRelation(organizationId: string, field: RelationField, id: string) {
@@ -17,11 +17,13 @@ export async function validateRelation(organizationId: string, field: RelationFi
     employeeId: prisma.employee, employeeQualificationId: prisma.employeeQualification,
     projectId: prisma.project, taskId: prisma.task, clientId: prisma.client,
     rentalId: prisma.rental, equipmentId: prisma.equipment,
+    trainingCourseId: prisma.trainingCourse, trainingSessionId: prisma.trainingSession,
+    trainingRecordId: prisma.employeeTrainingRecord, maintenanceRecordId: prisma.maintenanceRecord,
   }[field] as unknown as { findFirst(args: { where: { id: string; organizationId: string }; select: { id: true } }): Promise<{id:string}|null> };
   if (!await delegate.findFirst({ where: { id, organizationId }, select: { id: true } })) throw new Error("The related record does not exist in this organization.");
 }
 
-async function validateRelationAccess(user: AuthenticatedUser, field: RelationField, id: string) {
+export async function validateRelationAccess(user: AuthenticatedUser, field: RelationField, id: string) {
   if (user.role === "ADMIN") return;
   const allowed = field === "projectId" ? await prisma.project.findFirst({where:{id,...projectVisibilityWhere(user)}})
     : field === "taskId" ? await prisma.task.findFirst({where:{id,...taskVisibilityWhere(user)}})
@@ -29,6 +31,9 @@ async function validateRelationAccess(user: AuthenticatedUser, field: RelationFi
     : field === "employeeId" ? await prisma.employee.findFirst({where:{id,organizationId:user.organizationId,OR:[{id:user.employeeId||"__none__"},{supervisorId:user.employeeId||"__none__"}]}})
     : field === "employeeQualificationId" ? await prisma.employeeQualification.findFirst({where:{id,organizationId:user.organizationId,employee:{OR:[{id:user.employeeId||"__none__"},{supervisorId:user.employeeId||"__none__"}]}}})
     : field === "rentalId" ? await prisma.rental.findFirst({where:{id,organizationId:user.organizationId}})
+    : field === "trainingRecordId" ? await prisma.employeeTrainingRecord.findFirst({where:{id,organizationId:user.organizationId,...(user.role==="MANAGER"?{}:{employeeId:user.employeeId||"__none__"})}})
+    : field === "trainingCourseId" || field === "trainingSessionId" ? (user.role==="MANAGER"?{id}:null)
+    : field === "maintenanceRecordId" ? await prisma.maintenanceRecord.findFirst({where:{id,organizationId:user.organizationId,...(user.role==="MANAGER"?{}:{createdByUserId:user.id})}})
     : await prisma.equipment.findFirst({where:{id,organizationId:user.organizationId}});
   if (!allowed) throw new Error("You do not have access to the related record.");
 }

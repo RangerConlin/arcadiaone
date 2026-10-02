@@ -12,6 +12,9 @@ export type FilterOptions = {
   projects: Array<{ id: string; name: string }>;
   clients: Array<{ id: string; name: string }>;
   qualificationTypes: Array<{ id: string; name: string }>;
+  courses: Array<{ id: string; name: string }>;
+  equipment: Array<{ id: string; name: string }>;
+  equipmentCategories: Array<{ id: string; name: string }>;
 };
 
 /** Picker data is loaded only for filters the report uses, and only for records the viewer may see. */
@@ -19,16 +22,20 @@ export async function loadFilterOptions(user: AuthenticatedUser, def: ReportDefi
   const wants = (key: (typeof def.filters)[number]) => def.filters.includes(key);
   const staff = user.role !== "EMPLOYEE";
   const org = user.organizationId;
-  const [departments, positions, employees, projects, clients, qualificationTypes] = await Promise.all([
+  const [departments, positions, employees, projects, clients, qualificationTypes, courses, equipment, equipmentCategories] = await Promise.all([
     wants("department") ? prisma.department.findMany({ where: { organizationId: org, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [],
     wants("position") && staff ? prisma.position.findMany({ where: { organizationId: org, active: true }, select: { id: true, title: true }, orderBy: { title: "asc" } }) : [],
     wants("employee") && staff ? prisma.employee.findMany({ where: { organizationId: org, employmentStatus: { not: "TERMINATED" } }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], take: 500 }) : [],
     wants("project") ? prisma.project.findMany({ where: projectVisibilityWhere(user), select: { id: true, name: true }, orderBy: { name: "asc" }, take: 300 }) : [],
     wants("client") ? prisma.client.findMany({ where: clientVisibilityWhere(user), select: { id: true, name: true }, orderBy: { name: "asc" }, take: 300 }) : [],
     wants("qualificationType") && staff ? prisma.qualificationType.findMany({ where: { organizationId: org, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [],
+    wants("course") ? prisma.trainingCourse.findMany({ where: { organizationId: org }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [],
+    wants("equipment") ? prisma.equipment.findMany({ where: { organizationId: org, active: true }, select: { id: true, assetNumber: true, name: true }, orderBy: { assetNumber: "asc" }, take: 500 }) : [],
+    wants("equipmentCategory") ? prisma.equipmentCategory.findMany({ where: { organizationId: org }, select: { id: true, name: true }, orderBy: { name: "asc" } }) : [],
   ]);
   return {
-    departments, projects, clients, qualificationTypes,
+    departments, projects, clients, qualificationTypes, courses, equipmentCategories,
+    equipment: equipment.map((e) => ({ id: e.id, name: `${e.assetNumber} — ${e.name}` })),
     positions: positions.map((p) => ({ id: p.id, name: p.title })),
     employees: employees.map((e) => ({ id: e.id, name: formatName(e) })),
   };

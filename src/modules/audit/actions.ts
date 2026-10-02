@@ -55,6 +55,25 @@ export const AUDIT_ACTIONS = {
   portalUserAccessChanged: "portal.user.access.changed",
   portalApprovalSubmitted: "portal.approval.submitted",
   portalPasswordChanged: "portal.password.changed",
+  trainingCourseCreated: "training.course.created",
+  trainingCourseUpdated: "training.course.updated",
+  trainingSessionCreated: "training.session.created",
+  trainingSessionUpdated: "training.session.updated",
+  trainingSessionCompleted: "training.session.completed",
+  trainingSessionCancelled: "training.session.cancelled",
+  trainingEnrollmentCompleted: "training.enrollment.completed",
+  trainingRecordSubmitted: "training.record.submitted",
+  trainingRecordVerified: "training.record.verified",
+  trainingRecordRejected: "training.record.rejected",
+  trainingSettingsChanged: "training.settings.changed",
+  maintenanceOpened: "maintenance.opened",
+  maintenanceStatusChanged: "maintenance.status.changed",
+  maintenanceCompleted: "maintenance.completed",
+  maintenanceCancelled: "maintenance.cancelled",
+  maintenanceScheduleSaved: "maintenance.schedule.saved",
+  equipmentPlacedOutOfService: "equipment.unavailable",
+  equipmentReturnedToService: "equipment.returned_to_service",
+  maintenanceSettingsChanged: "maintenance.settings.changed",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -62,6 +81,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 export const AUDIT_ENTITY_TYPES = [
   "User", "Employee", "EmployeeQualification", "Project", "Task", "Client", "Equipment", "Rental", "Document",
   "SignatureRequest", "Invoice", "Payment", "LedgerTransaction", "ClientPortalUser", "ClientApprovalRequest",
+  "TrainingCourse", "TrainingSession", "EmployeeTrainingRecord", "MaintenanceRecord", "MaintenanceSchedule", "Organization",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
@@ -80,6 +100,9 @@ export function auditEntityHref(entityType: string, entityId: string | null | un
     case "SignatureRequest": return `/signatures/${entityId}`;
     case "Invoice": return `/invoices/${entityId}`;
     case "LedgerTransaction": return `/ledger/${entityId}`;
+    case "TrainingSession": return `/training/sessions/${entityId}`;
+    case "EmployeeTrainingRecord": return `/training/records/${entityId}`;
+    case "MaintenanceRecord": return `/maintenance/${entityId}`;
     default: return null;
   }
 }

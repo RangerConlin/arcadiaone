@@ -1,6 +1,6 @@
 import { addDays, addMonths, isDayKey, monthGrid, startOfMonth, weekKeys } from "@/lib/datetime";
 
-export const CALENDAR_ITEM_TYPES = ["PROJECT", "MILESTONE", "TASK", "RENTAL", "QUALIFICATION", "INVOICE", "SIGNATURE", "APPROVAL", "EVENT"] as const;
+export const CALENDAR_ITEM_TYPES = ["PROJECT", "MILESTONE", "TASK", "RENTAL", "QUALIFICATION", "INVOICE", "SIGNATURE", "APPROVAL", "TRAINING", "MAINTENANCE", "EVENT"] as const;
 export type CalendarItemType = (typeof CALENDAR_ITEM_TYPES)[number];
 
 /** Label and icon are always shown together so type never depends on color alone. */
@@ -13,6 +13,8 @@ export const CALENDAR_TYPE_META: Record<CalendarItemType, { label: string; icon:
   INVOICE: { label: "Invoice", icon: "M4 4h16v16H4zM8 8h8M8 12h8M8 16h5" },
   SIGNATURE: { label: "Signature", icon: "M4 20c4-5 7-8 12-12l3 3c-4 5-7 8-12 12zM14 6l3 3" },
   APPROVAL: { label: "Approval", icon: "M5 12l4 4L19 6M3 3h18v18H3z" },
+  TRAINING: { label: "Training", icon: "M12 3 2 8l10 5 10-5zM6 10.5V15c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5M22 8v6" },
+  MAINTENANCE: { label: "Maintenance", icon: "M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z" },
   EVENT: { label: "General event", icon: "M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
 };
 

@@ -22,6 +22,14 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     subs: [{ label: "Calendar", href: "/calendar" }, { label: "My calendar", href: "/calendar/my" }, { label: "New event", href: "/calendar/events/new" }],
   };
 
+  const training: NavModule = {
+    id: "training", label: "Training", icon: "training", href: "/training", prefix: "/training",
+    subs: [{ label: "Training", href: "/training" }, { label: "Records", href: "/training?tab=records" }, { label: "Submit external", href: "/training/records/new" }, ...(user.role !== "EMPLOYEE" ? [{ label: "Schedule session", href: "/training/sessions/new" }] : [])],
+  };
+  const maintenance: NavModule = {
+    id: "maintenance", label: "Maintenance", icon: "maintenance", href: "/maintenance", prefix: "/maintenance",
+    subs: [{ label: "Overview", href: "/maintenance" }, { label: user.role === "EMPLOYEE" ? "Report an issue" : "New record", href: "/maintenance/new" }],
+  };
   const reports: NavModule = { id: "reports", label: "Reports", icon: "reports", href: "/reports", prefix: "/reports", subs: [{ label: "All reports", href: "/reports" }] };
   const ledger: NavModule = {
     id: "ledger", label: "Ledger", icon: "invoices", href: "/ledger", prefix: "/ledger",
@@ -37,6 +45,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
       clients,
       rentals,
       calendar,
+      training,
+      maintenance,
       reports,
       documents,
       { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }] },
@@ -51,6 +61,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     rentals,
     { id: "tasks", label: "Tasks", icon: "tasks", href: "/tasks", prefix: "/tasks", subs: [{ label: "All tasks", href: "/tasks" }, { label: "New task", href: "/tasks/new" }] },
     calendar,
+    training,
+    maintenance,
     reports,
     documents,
     { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }, { label: "Prepare", href: "/signatures/new" }] },
@@ -68,6 +80,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
             { label: "Users", href: "/administration/users" },
             { label: "Documents", href: "/administration/documents" },
             { label: "Calendar & reminders", href: "/administration/reminders" },
+            { label: "Training courses", href: "/administration/training-courses" },
+            { label: "Training and maintenance", href: "/administration/lifecycle" },
             { label: "Audit log", href: "/administration/audit" },
           ],
         }]
