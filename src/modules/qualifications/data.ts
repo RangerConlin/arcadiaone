@@ -22,7 +22,7 @@ export async function getEmployeeQualifications(employeeId: string) {
     prisma.employee.findFirst({
       where: { id: employeeId, organizationId: organization.id },
       include: {
-        qualifications: { where: { archivedAt: null }, include: { qualificationType: true, documents: true }, orderBy: { createdAt: "desc" } },
+        qualifications: { where: { archivedAt: null }, include: { qualificationType: true, documents: true, documentRelations: true }, orderBy: { createdAt: "desc" } },
         position: { include: { qualificationRequirements: { include: { qualificationType: true }, orderBy: { qualificationType: { name: "asc" } } } } },
       },
     }),

@@ -12,11 +12,12 @@ const commonNavigation = [
   { label: "Tasks", href: "/tasks" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
+  { label: "Documents", href: "/documents" },
 ];
 
 export function AppShell({ children, organizationName, user }: { children: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
   const navigation = user.role === "EMPLOYEE"
-    ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 6)]
+    ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 6), { label: "Documents", href: "/documents" }]
     : [...commonNavigation, ...(user.role === "ADMIN" ? [{ label: "Administration", href: "/administration" }] : [])];
   return (
     <div className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">

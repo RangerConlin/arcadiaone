@@ -43,6 +43,11 @@ model Organization {
   rentalActivities                   RentalActivity[]
   equipmentPackages                  EquipmentPackage[]
   qualificationExpirationWarningDays Int                                @default(60)
+  documentCategories                 DocumentCategory[]
+  documents                          Document[]
+  documentVersions                   DocumentVersion[]
+  documentRelations                  DocumentRelation[]
+  documentActivities                 DocumentActivity[]
 }
 
 model Department {
@@ -111,6 +116,7 @@ model Employee {
   preparedRentals    Rental[]                @relation("RentalPreparer")
   checkedOutRentals  Rental[]                @relation("RentalCheckoutEmployee")
   receivedRentals    Rental[]                @relation("RentalReceiver")
+  documentRelations  DocumentRelation[]
 
   @@unique([organizationId, employeeNumber])
   @@index([organizationId, employmentStatus])
@@ -146,6 +152,7 @@ model Project {
   tasks            Task[]
   client           Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
   rentals          Rental[]
+  documentRelations DocumentRelation[]
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
@@ -183,6 +190,7 @@ model Client {
   projects         Project[]
   activities       ClientActivity[]
   rentals          Rental[]
+  documentRelations DocumentRelation[]
 
   @@unique([organizationId, clientNumber])
   @@index([organizationId, status, name])
@@ -329,6 +337,7 @@ model Task {
   checklistItems       TaskChecklistItem[]
   comments             TaskComment[]
   activities           TaskActivity[]
+  documentRelations    DocumentRelation[]
 
   @@index([organizationId, status, dueDate])
   @@index([organizationId, assignedToEmployeeId, status])
@@ -424,6 +433,7 @@ model EmployeeQualification {
   employee            Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   qualificationType   QualificationType       @relation(fields: [qualificationTypeId], references: [id], onDelete: Restrict)
   documents           QualificationDocument[]
+  documentRelations   DocumentRelation[]
 
   @@index([organizationId, expirationDate])
   @@index([employeeId, qualificationTypeId])
@@ -507,6 +517,9 @@ model User {
   clientActivities   ClientActivity[]
   createdRentals     Rental[]         @relation("RentalCreator")
   rentalActivities   RentalActivity[]
+  createdDocuments   Document[]         @relation("DocumentCreator")
+  uploadedVersions  DocumentVersion[]  @relation("DocumentVersionUploader")
+  documentActivities DocumentActivity[]
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -583,6 +596,7 @@ model Equipment {
   category          EquipmentCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   location          EquipmentLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   rentalItems       RentalItem[]
+  documentRelations DocumentRelation[]
 
   @@unique([organizationId, assetNumber])
   @@index([organizationId, status, active, rentable])
@@ -613,6 +627,7 @@ model Rental {
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
   organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  documentRelations      DocumentRelation[]
   client                 Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
   clientContact          ClientContact?   @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
   project                Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -749,6 +764,136 @@ enum UserRole {
   ADMIN
   MANAGER
   EMPLOYEE
+}
+
+/// A logical, versioned document. Binary data is held only by DocumentVersion.
+model DocumentCategory {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  documents      Document[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+model Document {
+  id               String              @id @default(uuid())
+  organizationId   String
+  title            String
+  description      String?
+  categoryId       String?
+  status           DocumentStatus      @default(ACTIVE)
+  sensitivity      DocumentSensitivity @default(NORMAL)
+  currentVersionId String?             @unique
+  createdByUserId  String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  archivedAt       DateTime?
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category         DocumentCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy        User                @relation("DocumentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  currentVersion   DocumentVersion?    @relation("CurrentDocumentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions         DocumentVersion[]   @relation("DocumentVersions")
+  relations        DocumentRelation[]
+  activities       DocumentActivity[]
+
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, title])
+}
+
+model DocumentVersion {
+  id                 String       @id @default(uuid())
+  organizationId     String
+  documentId         String
+  versionNumber      Int
+  originalFilename   String
+  storageKey         String
+  mimeType           String
+  sizeBytes          Int
+  checksum           String
+  uploadedByUserId   String
+  uploadedAt         DateTime     @default(now())
+  notes              String?
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document           Document     @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  currentForDocument Document?    @relation("CurrentDocumentVersion")
+  uploadedBy         User         @relation("DocumentVersionUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, versionNumber])
+  @@unique([organizationId, storageKey])
+  @@index([organizationId, documentId])
+}
+
+/// Explicit nullable foreign keys keep attachment targets type-safe and auditable.
+/// Application validation requires exactly one target and verifies its organization.
+model DocumentRelation {
+  id                      String                 @id @default(uuid())
+  organizationId          String
+  documentId              String
+  employeeId              String?
+  employeeQualificationId String?
+  projectId               String?
+  taskId                  String?
+  clientId                String?
+  rentalId                String?
+  equipmentId             String?
+  createdAt               DateTime               @default(now())
+  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document                Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee                Employee?              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeQualification   EmployeeQualification? @relation(fields: [employeeQualificationId], references: [id], onDelete: Cascade)
+  project                 Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task                    Task?                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client                  Client?                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rental                  Rental?                @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  equipment               Equipment?             @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, documentId])
+  @@index([organizationId, employeeId])
+  @@index([organizationId, employeeQualificationId])
+  @@index([organizationId, projectId])
+  @@index([organizationId, taskId])
+  @@index([organizationId, clientId])
+  @@index([organizationId, rentalId])
+  @@index([organizationId, equipmentId])
+}
+
+model DocumentActivity {
+  id             String               @id @default(uuid())
+  organizationId String
+  documentId     String
+  userId         String
+  type           DocumentActivityType
+  detail         String?
+  createdAt      DateTime             @default(now())
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document       Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, documentId, createdAt])
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+}
+enum DocumentSensitivity {
+  NORMAL
+  RESTRICTED
+}
+enum DocumentActivityType {
+  UPLOADED
+  VERSION_UPLOADED
+  METADATA_CHANGED
+  ARCHIVED
+  RESTORED
 }
 
 enum ProjectStatus {

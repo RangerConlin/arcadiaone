@@ -1,3 +1,4 @@
+import { DocumentSection } from "@/components/document-section";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink, Notice, SecondaryLink, StatusBadge } from "@/components/ui";
@@ -91,8 +92,8 @@ export default async function EmployeeProfilePage({
               {qualificationData?.qualifications.map((item) => <article className="rounded-sm border border-[color:var(--border)] p-4" key={item.id}>
                 <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">{item.qualificationType.name}</h3><p className="text-xs text-[color:var(--muted)]">{item.qualificationType.category} · {item.credentialNumber || "No credential number"}</p></div><div className="flex gap-2"><QualificationBadge text={statusLabel[item.status]} /><QualificationBadge text={item.verificationStatus[0]+item.verificationStatus.slice(1).toLowerCase()} /></div></div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3"><Description label="Issuer" value={item.issuingOrganization || item.qualificationType.issuingOrganization || "Not set"}/><Description label="Issued" value={formatDate(item.issueDate)}/><Description label="Expires" value={item.expirationDate ? formatDate(item.expirationDate) : "Does not expire"}/></dl>
-                <p className="mt-2 text-xs text-[color:var(--muted)]">Documents: {item.documents.length}{item.verificationNote ? ` · Review note: ${item.verificationNote}` : ""}</p>
-                {canEdit ? <div className="mt-3 flex flex-wrap gap-2"><SecondaryLink href={`/people/${employee.id}/qualifications/${item.id}/edit`}>Edit</SecondaryLink><form action={reviewQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="VERIFIED">Verify</button><button className="ml-2 rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="REJECTED">Reject</button></form><form action={archiveEmployeeQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm">Archive</button></form></div> : null}
+                <p className="mt-2 text-xs text-[color:var(--muted)]">Documents: {item.documents.length + item.documentRelations.length}{item.verificationNote ? ` · Review note: ${item.verificationNote}` : ""}</p>
+                {canEdit ? <div className="mt-3 flex flex-wrap gap-2"><SecondaryLink href={`/people/${employee.id}/qualifications/${item.id}/edit`}>Edit</SecondaryLink><SecondaryLink href={`/documents/upload?relationType=employeeQualificationId&relationId=${item.id}&returnTo=${encodeURIComponent(`/people/${employee.id}`)}`}>Upload evidence</SecondaryLink><form action={reviewQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="VERIFIED">Verify</button><button className="ml-2 rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm" name="status" value="REJECTED">Reject</button></form><form action={archiveEmployeeQualification}><input name="id" type="hidden" value={item.id}/><input name="employeeId" type="hidden" value={employee.id}/><button className="rounded-sm border border-[color:var(--border)] px-3 py-2 text-sm">Archive</button></form></div> : null}
               </article>)}
               {!qualificationData?.qualifications.length && <p className="rounded-sm border border-dashed border-[color:var(--border)] p-5 text-sm text-[color:var(--muted)]">No qualifications recorded.</p>}
             </div>
@@ -107,6 +108,7 @@ export default async function EmployeeProfilePage({
           </div>
         </aside>
       </section>
+      <div className="mt-5"><DocumentSection relationType="employeeId" relationId={employee.id} returnTo={`/people/${employee.id}`}/></div>
     </>
   );
 }
