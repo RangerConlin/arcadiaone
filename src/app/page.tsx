@@ -1,11 +1,12 @@
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink, SecondaryLink } from "@/components/ui";
 import { getDashboardStats } from "@/modules/people/data";
+import { getTaskDashboardStats } from "@/modules/tasks/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const stats = await getDashboardStats();
+  const [stats, taskStats] = await Promise.all([getDashboardStats(), getTaskDashboardStats()]);
 
   return (
     <>
@@ -19,6 +20,12 @@ export default async function DashboardPage() {
         <Metric label="Active departments" value={stats.departments} />
         <Metric label="Active positions" value={stats.positions} />
       </section>
+      <section className="mt-4 grid gap-4 md:grid-cols-4">
+        <Metric label="My open tasks" value={taskStats.open} />
+        <Metric label="Due soon" value={taskStats.dueSoon} />
+        <Metric label="Overdue" value={taskStats.overdue} />
+        <Metric label="In progress" value={taskStats.inProgress} />
+      </section>
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--panel)] p-5">
           <h2 className="text-base font-semibold">People module</h2>
@@ -31,11 +38,11 @@ export default async function DashboardPage() {
           </div>
         </div>
         <div className="rounded-sm border border-dashed border-[color:var(--border)] bg-[color:var(--panel)] p-5">
-          <h2 className="text-base font-semibold">Upcoming modules</h2>
+          <h2 className="text-base font-semibold">Work management</h2>
           <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-            Certifications, training, projects, scheduling, documents, and
-            reporting will be added in later focused passes.
-          </p>
+            Track standalone and project work, assignments, due dates,
+            subtasks, checklists, comments, and activity without added process.
+          </p><div className="mt-4"><SecondaryLink href="/tasks">Open tasks</SecondaryLink></div>
         </div>
       </section>
     </>

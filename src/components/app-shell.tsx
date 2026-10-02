@@ -4,6 +4,7 @@ const navigation = [
   { label: "Dashboard", href: "/" },
   { label: "People", href: "/people" },
   { label: "Projects", href: "/projects" },
+  { label: "Tasks", href: "/tasks" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
   { label: "Administration", href: "/administration" },
