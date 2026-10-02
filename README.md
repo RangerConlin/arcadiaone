@@ -1,6 +1,6 @@
 # ArcadiaOne
 
-ArcadiaOne is an employee-management and project-management web application for Arcadia Command Solutions.
+ArcadiaOne is an employee-management and project-management web application.
 
 ## Status
 
@@ -189,7 +189,7 @@ Seed the required organization record:
 npm run db:seed
 ```
 
-The seed creates `Arcadia Command Solutions`. Optional fictional development sample data is only created when `SEED_SAMPLE_DATA=true` is set.
+The seed creates the organization record, named by the `ORGANIZATION_NAME` environment variable (default `My Organization`), unless an organization already exists. The application is single-tenant: it uses the one organization record. Optional fictional development sample data is only created when `SEED_SAMPLE_DATA=true` is set.
 
 Open Prisma Studio:
 

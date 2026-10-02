@@ -27,7 +27,7 @@ export default async function PeoplePage({
       <PageHeader
         actions={<ButtonLink href="/people/new">Add employee</ButtonLink>}
         breadcrumbs={[{ label: "Dashboard", href: "/" }, { label: "People" }]}
-        description="Search and maintain employee records for Arcadia Command Solutions."
+        description="Search and maintain employee records."
         title="People"
       />
       <Notice message={params.success} tone="success" />

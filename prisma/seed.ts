@@ -13,12 +13,10 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  const organizationName = "Arcadia Command Solutions";
+  const organizationName = process.env.ORGANIZATION_NAME?.trim() || "My Organization";
 
   const organization =
-    (await prisma.organization.findUnique({
-      where: { name: organizationName },
-    })) ??
+    (await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } })) ??
     (await prisma.organization.create({
       data: { name: organizationName },
     }));

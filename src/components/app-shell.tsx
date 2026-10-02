@@ -12,7 +12,7 @@ const commonNavigation = [
   { label: "Reports", href: "/reports" },
 ];
 
-export function AppShell({ children, user }: { children: React.ReactNode; user: AuthenticatedUser }) {
+export function AppShell({ children, organizationName, user }: { children: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
   const navigation = user.role === "EMPLOYEE"
     ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 4)]
     : [...commonNavigation, ...(user.role === "ADMIN" ? [{ label: "Administration", href: "/administration" }] : [])];
@@ -44,7 +44,7 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[color:var(--accent)]">
-                Arcadia Command Solutions
+                {organizationName}
               </p>
               <p className="text-xs text-[color:var(--muted)]">
                 Employee and project management
