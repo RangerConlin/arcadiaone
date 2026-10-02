@@ -7,6 +7,7 @@ const commonNavigation = [
   { label: "People", href: "/people" },
   { label: "Qualifications", href: "/people/qualifications" },
   { label: "Projects", href: "/projects" },
+  { label: "Clients", href: "/clients" },
   { label: "Tasks", href: "/tasks" },
   { label: "Calendar", href: "/calendar" },
   { label: "Reports", href: "/reports" },
@@ -14,7 +15,7 @@ const commonNavigation = [
 
 export function AppShell({ children, organizationName, user }: { children: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
   const navigation = user.role === "EMPLOYEE"
-    ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 4)]
+    ? [{ label: "Dashboard", href: "/" }, ...(user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : []), ...commonNavigation.slice(2, 5)]
     : [...commonNavigation, ...(user.role === "ADMIN" ? [{ label: "Administration", href: "/administration" }] : [])];
   return (
     <div className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">

@@ -33,6 +33,9 @@ model Organization {
   tasks                              Task[]
   taskComments                       TaskComment[]
   taskActivities                     TaskActivity[]
+  clients                            Client[]
+  clientContacts                     ClientContact[]
+  clientActivities                   ClientActivity[]
   qualificationExpirationWarningDays Int                                @default(60)
 }
 
@@ -121,6 +124,7 @@ model Project {
   actualEndDate    DateTime?
   projectManagerId String?
   clientName       String?
+  clientId         String?
   location         String?
   notes            String?
   createdAt        DateTime           @default(now())
@@ -131,11 +135,87 @@ model Project {
   milestones       ProjectMilestone[]
   activities       ProjectActivity[]
   tasks            Task[]
+  client           Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
   @@index([organizationId, projectManagerId])
   @@index([organizationId, name])
+  @@index([organizationId, clientId])
+}
+
+model Client {
+  id               String           @id @default(uuid())
+  organizationId   String
+  createdByUserId  String
+  name             String
+  displayName      String?
+  clientNumber     String?
+  status           ClientStatus     @default(PROSPECT)
+  type             ClientType?
+  primaryContactId String?
+  website          String?
+  mainPhone        String?
+  generalEmail     String?
+  addressLine1     String?
+  addressLine2     String?
+  city             String?
+  stateProvince    String?
+  postalCode       String?
+  country          String?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy        User             @relation("ClientCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  contacts         ClientContact[]  @relation("ClientContacts")
+  primaryContact   ClientContact?   @relation("PrimaryClientContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  projects         Project[]
+  activities       ClientActivity[]
+
+  @@unique([organizationId, clientNumber])
+  @@index([organizationId, status, name])
+  @@index([createdByUserId])
+}
+
+model ClientContact {
+  id                     String                  @id @default(uuid())
+  organizationId         String
+  clientId               String
+  firstName              String
+  lastName               String
+  title                  String?
+  email                  String?
+  phone                  String?
+  mobilePhone            String?
+  preferredContactMethod PreferredContactMethod?
+  primary                Boolean                 @default(false)
+  active                 Boolean                 @default(true)
+  notes                  String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client                 Client                  @relation("ClientContacts", fields: [clientId], references: [id], onDelete: Cascade)
+  primaryFor             Client[]                @relation("PrimaryClientContact")
+
+  @@index([organizationId, clientId, active])
+  @@index([organizationId, lastName, firstName])
+}
+
+model ClientActivity {
+  id             String             @id @default(uuid())
+  organizationId String
+  clientId       String
+  userId         String
+  activityType   ClientActivityType @default(NOTE)
+  summary        String
+  occurredAt     DateTime           @default(now())
+  createdAt      DateTime           @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client         Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, clientId, occurredAt])
 }
 
 model ProjectMember {
@@ -393,24 +473,26 @@ enum VerificationStatus {
 }
 
 model User {
-  id                 String         @id @default(uuid())
+  id                 String           @id @default(uuid())
   organizationId     String
-  employeeId         String?        @unique
+  employeeId         String?          @unique
   email              String
   passwordHash       String
-  role               UserRole       @default(EMPLOYEE)
-  active             Boolean        @default(true)
-  mustChangePassword Boolean        @default(true)
+  role               UserRole         @default(EMPLOYEE)
+  active             Boolean          @default(true)
+  mustChangePassword Boolean          @default(true)
   lastLoginAt        DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee           Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee           Employee?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   sessions           Session[]
-  createdTasks       Task[]         @relation("TaskCreator")
-  assignedTasks      Task[]         @relation("TaskAssigner")
+  createdTasks       Task[]           @relation("TaskCreator")
+  assignedTasks      Task[]           @relation("TaskAssigner")
   taskComments       TaskComment[]
   taskActivities     TaskActivity[]
+  createdClients     Client[]         @relation("ClientCreator")
+  clientActivities   ClientActivity[]
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -442,6 +524,35 @@ enum ProjectStatus {
   COMPLETED
   CANCELLED
   ARCHIVED
+}
+
+enum ClientStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ClientType {
+  BUSINESS
+  GOVERNMENT
+  NONPROFIT
+  INDIVIDUAL
+  OTHER
+}
+
+enum PreferredContactMethod {
+  EMAIL
+  PHONE
+  MOBILE
+}
+
+enum ClientActivityType {
+  PHONE_CALL
+  EMAIL
+  MEETING
+  NOTE
+  OTHER
 }
 
 enum ProjectPriority {
