@@ -16,6 +16,11 @@ export default function AdministrationPage() {
           title="Departments"
         />
         <AdminCard
+          description="Review who changed what, and when, across security and business-critical records."
+          href="/administration/audit"
+          title="Audit log"
+        />
+        <AdminCard
           description="Set the organization time zone, due-soon windows for tasks, rentals and invoices, and notification archiving."
           href="/administration/reminders"
           title="Calendar and reminders"

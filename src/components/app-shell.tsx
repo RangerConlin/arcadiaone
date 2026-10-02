@@ -22,6 +22,12 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     subs: [{ label: "Calendar", href: "/calendar" }, { label: "My calendar", href: "/calendar/my" }, { label: "New event", href: "/calendar/events/new" }],
   };
 
+  const reports: NavModule = { id: "reports", label: "Reports", icon: "reports", href: "/reports", prefix: "/reports", subs: [{ label: "All reports", href: "/reports" }] };
+  const ledger: NavModule = {
+    id: "ledger", label: "Ledger", icon: "invoices", href: "/ledger", prefix: "/ledger",
+    subs: [{ label: "Transactions", href: "/ledger" }, { label: "New transaction", href: "/ledger/new" }, ...(user.role === "ADMIN" ? [{ label: "Categories", href: "/ledger/categories" }] : [])],
+  };
+
   if (user.role === "EMPLOYEE") {
     const profile = user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : [];
     return [
@@ -31,6 +37,7 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
       clients,
       rentals,
       calendar,
+      reports,
       documents,
       { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }] },
     ];
@@ -44,10 +51,11 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     rentals,
     { id: "tasks", label: "Tasks", icon: "tasks", href: "/tasks", prefix: "/tasks", subs: [{ label: "All tasks", href: "/tasks" }, { label: "New task", href: "/tasks/new" }] },
     calendar,
-    { id: "reports", label: "Reports", icon: "reports", href: "/reports", prefix: "/reports", subs: [{ label: "Reports", href: "/reports" }] },
+    reports,
     documents,
     { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }, { label: "Prepare", href: "/signatures/new" }] },
     { id: "invoices", label: "Invoices", icon: "invoices", href: "/invoices", prefix: "/invoices", subs: [{ label: "Invoices", href: "/invoices" }, { label: "New draft", href: "/invoices/new" }] },
+    ledger,
     ...(user.role === "ADMIN"
       ? [{
           id: "admin", label: "Administration", railLabel: "Admin", icon: "admin" as const, href: "/administration", prefix: "/administration",
@@ -60,6 +68,7 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
             { label: "Users", href: "/administration/users" },
             { label: "Documents", href: "/administration/documents" },
             { label: "Calendar & reminders", href: "/administration/reminders" },
+            { label: "Audit log", href: "/administration/audit" },
           ],
         }]
       : []),

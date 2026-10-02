@@ -1,4 +1,6 @@
 import "server-only";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { audit, userActor } from "@/modules/audit/service";
 import type { AuthenticatedUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { documentStorage } from "./storage";
@@ -45,6 +47,8 @@ export async function createDocument(input: { title:string; description?:string;
       await tx.document.update({where:{id:document.id},data:{currentVersionId:version.id}});
       await tx.documentRelation.create({data:{organizationId:user.organizationId,documentId:document.id,[input.relationField]:input.relationId}});
       await tx.documentActivity.create({data:{organizationId:user.organizationId,documentId:document.id,userId:user.id,type:"UPLOADED",detail:`Version 1 uploaded (${valid.filename}).`}});
+      // File names and contents are never audited beyond the title and size.
+      await audit.record(tx,{organizationId:user.organizationId,actor:userActor(user),action:AUDIT_ACTIONS.documentUploaded,entityType:"Document",entityId:document.id,summary:`Document "${document.title}" uploaded`,metadata:{sensitivity:document.sensitivity,relatedTo:input.relationField,sizeBytes:stored.sizeBytes,mimeType:valid.mimeType}});
       return document;
     });
   } catch (error) { await documentStorage.delete(stored.key); throw error; }
@@ -59,6 +63,7 @@ export async function addVersion(documentId:string,file:File,notes:string|undefi
     const version=await tx.documentVersion.create({data:{organizationId:user.organizationId,documentId,versionNumber:(latest._max.versionNumber||0)+1,originalFilename:valid.filename,storageKey:stored.key,mimeType:valid.mimeType,sizeBytes:stored.sizeBytes,checksum:valid.checksum,uploadedByUserId:user.id,notes:notes?.trim()||null}});
     await tx.document.update({where:{id:documentId},data:{currentVersionId:version.id}});
     await tx.documentActivity.create({data:{organizationId:user.organizationId,documentId,userId:user.id,type:"VERSION_UPLOADED",detail:`Version ${version.versionNumber} uploaded (${valid.filename}).`}});
+    await audit.record(tx,{organizationId:user.organizationId,actor:userActor(user),action:AUDIT_ACTIONS.documentVersionAdded,entityType:"Document",entityId:documentId,summary:`Version ${version.versionNumber} added to "${document.title}"`,metadata:{versionNumber:version.versionNumber,sensitivity:document.sensitivity,sizeBytes:stored.sizeBytes}});
     return version;
   });}catch(error){await documentStorage.delete(stored.key);throw error;}
 }

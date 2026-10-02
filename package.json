@@ -17,7 +17,8 @@
     "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "jobs:notifications": "tsx src/worker/run-once.ts",
     "worker": "tsx src/worker/index.ts",
-    "test:integration": "INTEGRATION_TESTS=1 tsx --test src/modules/notifications/integration.test.ts"
+    "test:integration": "INTEGRATION_TESTS=1 tsx --test src/modules/notifications/integration.test.ts src/modules/finance.integration.test.ts",
+    "ledger:backfill-payments": "tsx src/worker/backfill-ledger-payments.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

@@ -74,6 +74,12 @@ model Organization {
   calendarEvents                     CalendarEvent[]
   notifications                      Notification[]
   notificationPreferences            NotificationPreference[]
+  nextLedgerSequence                 Int                                @default(1)
+  autoPostPaymentsToLedger           Boolean                            @default(true)
+  ledgerCategories                   LedgerCategory[]
+  ledgerTransactions                 LedgerTransaction[]
+  auditEvents                        AuditEvent[]
+  savedReportFilters                 SavedReportFilter[]
 }
 
 model Department {
@@ -155,37 +161,38 @@ model Employee {
 }
 
 model Project {
-  id                String                  @id @default(uuid())
-  organizationId    String
-  projectNumber     String?
-  name              String
-  description       String?
-  status            ProjectStatus           @default(PLANNING)
-  priority          ProjectPriority         @default(NORMAL)
-  startDate         DateTime?
-  targetEndDate     DateTime?
-  actualEndDate     DateTime?
-  projectManagerId  String?
-  clientName        String?
-  clientId          String?
-  location          String?
-  notes             String?
-  portalVisible     Boolean                 @default(false)
-  clientDescription String?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  projectManager    Employee?               @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
-  members           ProjectMember[]
-  milestones        ProjectMilestone[]
-  activities        ProjectActivity[]
-  tasks             Task[]
-  client            Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  rentals           Rental[]
-  documentRelations DocumentRelation[]
-  invoices          Invoice[]
-  approvalRequests  ClientApprovalRequest[]
-  calendarEvents    CalendarEvent[]
+  id                 String                  @id @default(uuid())
+  organizationId     String
+  projectNumber      String?
+  name               String
+  description        String?
+  status             ProjectStatus           @default(PLANNING)
+  priority           ProjectPriority         @default(NORMAL)
+  startDate          DateTime?
+  targetEndDate      DateTime?
+  actualEndDate      DateTime?
+  projectManagerId   String?
+  clientName         String?
+  clientId           String?
+  location           String?
+  notes              String?
+  portalVisible      Boolean                 @default(false)
+  clientDescription  String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  projectManager     Employee?               @relation("ProjectManager", fields: [projectManagerId], references: [id], onDelete: SetNull)
+  members            ProjectMember[]
+  milestones         ProjectMilestone[]
+  activities         ProjectActivity[]
+  tasks              Task[]
+  client             Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  rentals            Rental[]
+  documentRelations  DocumentRelation[]
+  invoices           Invoice[]
+  approvalRequests   ClientApprovalRequest[]
+  calendarEvents     CalendarEvent[]
+  ledgerTransactions LedgerTransaction[]
 
   @@unique([organizationId, projectNumber])
   @@index([organizationId, status])
@@ -195,42 +202,43 @@ model Project {
 }
 
 model Client {
-  id                String                   @id @default(uuid())
-  organizationId    String
-  createdByUserId   String
-  name              String
-  displayName       String?
-  clientNumber      String?
-  status            ClientStatus             @default(PROSPECT)
-  type              ClientType?
-  primaryContactId  String?
-  website           String?
-  mainPhone         String?
-  generalEmail      String?
-  addressLine1      String?
-  addressLine2      String?
-  city              String?
-  stateProvince     String?
-  postalCode        String?
-  country           String?
-  notes             String?
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
-  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy         User                     @relation("ClientCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  contacts          ClientContact[]          @relation("ClientContacts")
-  primaryContact    ClientContact?           @relation("PrimaryClientContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
-  projects          Project[]
-  activities        ClientActivity[]
-  rentals           Rental[]
-  documentRelations DocumentRelation[]
-  invoices          Invoice[]
-  portalUsers       ClientPortalUser[]
-  portalInvitations ClientPortalInvitation[]
-  documentShares    DocumentPortalShare[]
-  approvalRequests  ClientApprovalRequest[]
-  portalActivities  PortalActivity[]
-  calendarEvents    CalendarEvent[]
+  id                 String                   @id @default(uuid())
+  organizationId     String
+  createdByUserId    String
+  name               String
+  displayName        String?
+  clientNumber       String?
+  status             ClientStatus             @default(PROSPECT)
+  type               ClientType?
+  primaryContactId   String?
+  website            String?
+  mainPhone          String?
+  generalEmail       String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  stateProvince      String?
+  postalCode         String?
+  country            String?
+  notes              String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy          User                     @relation("ClientCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  contacts           ClientContact[]          @relation("ClientContacts")
+  primaryContact     ClientContact?           @relation("PrimaryClientContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  projects           Project[]
+  activities         ClientActivity[]
+  rentals            Rental[]
+  documentRelations  DocumentRelation[]
+  invoices           Invoice[]
+  portalUsers        ClientPortalUser[]
+  portalInvitations  ClientPortalInvitation[]
+  documentShares     DocumentPortalShare[]
+  approvalRequests   ClientApprovalRequest[]
+  portalActivities   PortalActivity[]
+  calendarEvents     CalendarEvent[]
+  ledgerTransactions LedgerTransaction[]
 
   @@unique([organizationId, clientNumber])
   @@index([organizationId, status, name])
@@ -386,6 +394,7 @@ model Task {
 
   @@index([organizationId, status, dueDate])
   @@index([organizationId, assignedToEmployeeId, status])
+  @@index([organizationId, completedAt])
   @@index([projectId, status])
   @@index([milestoneId])
   @@index([parentTaskId])
@@ -540,42 +549,45 @@ enum VerificationStatus {
 }
 
 model User {
-  id                      String                   @id @default(uuid())
-  organizationId          String
-  employeeId              String?                  @unique
-  email                   String
-  passwordHash            String
-  role                    UserRole                 @default(EMPLOYEE)
-  active                  Boolean                  @default(true)
-  mustChangePassword      Boolean                  @default(true)
-  lastLoginAt             DateTime?
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  employee                Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  sessions                Session[]
-  createdTasks            Task[]                   @relation("TaskCreator")
-  assignedTasks           Task[]                   @relation("TaskAssigner")
-  taskComments            TaskComment[]
-  taskActivities          TaskActivity[]
-  createdClients          Client[]                 @relation("ClientCreator")
-  clientActivities        ClientActivity[]
-  createdRentals          Rental[]                 @relation("RentalCreator")
-  rentalActivities        RentalActivity[]
-  createdDocuments        Document[]               @relation("DocumentCreator")
-  uploadedVersions        DocumentVersion[]        @relation("DocumentVersionUploader")
-  documentActivities      DocumentActivity[]
-  createdInvoices         Invoice[]                @relation("InvoiceCreator")
-  recordedPayments        Payment[]                @relation("PaymentRecorder")
-  requestedSignatures     SignatureRequest[]       @relation("SignatureRequester")
-  invoiceActivities       InvoiceActivity[]
-  signatureEvents         SignatureEvent[]
-  portalInvitations       ClientPortalInvitation[] @relation("PortalInviter")
-  approvalRequests        ClientApprovalRequest[]  @relation("ApprovalRequester")
-  timezone                String?
-  createdCalendarEvents   CalendarEvent[]          @relation("CalendarEventCreator")
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
+  id                        String                   @id @default(uuid())
+  organizationId            String
+  employeeId                String?                  @unique
+  email                     String
+  passwordHash              String
+  role                      UserRole                 @default(EMPLOYEE)
+  active                    Boolean                  @default(true)
+  mustChangePassword        Boolean                  @default(true)
+  lastLoginAt               DateTime?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  organization              Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  employee                  Employee?                @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  sessions                  Session[]
+  createdTasks              Task[]                   @relation("TaskCreator")
+  assignedTasks             Task[]                   @relation("TaskAssigner")
+  taskComments              TaskComment[]
+  taskActivities            TaskActivity[]
+  createdClients            Client[]                 @relation("ClientCreator")
+  clientActivities          ClientActivity[]
+  createdRentals            Rental[]                 @relation("RentalCreator")
+  rentalActivities          RentalActivity[]
+  createdDocuments          Document[]               @relation("DocumentCreator")
+  uploadedVersions          DocumentVersion[]        @relation("DocumentVersionUploader")
+  documentActivities        DocumentActivity[]
+  createdInvoices           Invoice[]                @relation("InvoiceCreator")
+  recordedPayments          Payment[]                @relation("PaymentRecorder")
+  requestedSignatures       SignatureRequest[]       @relation("SignatureRequester")
+  invoiceActivities         InvoiceActivity[]
+  signatureEvents           SignatureEvent[]
+  portalInvitations         ClientPortalInvitation[] @relation("PortalInviter")
+  approvalRequests          ClientApprovalRequest[]  @relation("ApprovalRequester")
+  timezone                  String?
+  createdCalendarEvents     CalendarEvent[]          @relation("CalendarEventCreator")
+  notifications             Notification[]
+  notificationPreferences   NotificationPreference[]
+  createdLedgerTransactions LedgerTransaction[]      @relation("LedgerCreator")
+  voidedLedgerTransactions  LedgerTransaction[]      @relation("LedgerVoider")
+  savedReportFilters        SavedReportFilter[]
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -626,33 +638,34 @@ model EquipmentLocation {
 }
 
 model Equipment {
-  id                String             @id @default(uuid())
-  organizationId    String
-  assetNumber       String
-  name              String
-  description       String?
-  categoryId        String?
-  manufacturer      String?
-  model             String?
-  serialNumber      String?
-  status            EquipmentStatus    @default(AVAILABLE)
-  condition         EquipmentCondition @default(GOOD)
-  purchaseDate      DateTime?
-  purchaseCost      Decimal?           @db.Decimal(12, 2)
-  replacementValue  Decimal?           @db.Decimal(12, 2)
-  defaultRentalRate Decimal?           @db.Decimal(12, 2)
-  rateUnit          RentalRateUnit?
-  rentable          Boolean            @default(true)
-  active            Boolean            @default(true)
-  locationId        String?
-  notes             String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  category          EquipmentCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  location          EquipmentLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  rentalItems       RentalItem[]
-  documentRelations DocumentRelation[]
+  id                 String              @id @default(uuid())
+  organizationId     String
+  assetNumber        String
+  name               String
+  description        String?
+  categoryId         String?
+  manufacturer       String?
+  model              String?
+  serialNumber       String?
+  status             EquipmentStatus     @default(AVAILABLE)
+  condition          EquipmentCondition  @default(GOOD)
+  purchaseDate       DateTime?
+  purchaseCost       Decimal?            @db.Decimal(12, 2)
+  replacementValue   Decimal?            @db.Decimal(12, 2)
+  defaultRentalRate  Decimal?            @db.Decimal(12, 2)
+  rateUnit           RentalRateUnit?
+  rentable           Boolean             @default(true)
+  active             Boolean             @default(true)
+  locationId         String?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category           EquipmentCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  location           EquipmentLocation?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  rentalItems        RentalItem[]
+  documentRelations  DocumentRelation[]
+  ledgerTransactions LedgerTransaction[]
 
   @@unique([organizationId, assetNumber])
   @@index([organizationId, status, active, rentable])
@@ -661,13 +674,13 @@ model Equipment {
 }
 
 model Rental {
-  id                     String             @id @default(uuid())
+  id                     String              @id @default(uuid())
   organizationId         String
   rentalNumber           String
   clientId               String?
   clientContactId        String?
   projectId              String?
-  status                 RentalStatus       @default(DRAFT)
+  status                 RentalStatus        @default(DRAFT)
   reservationStart       DateTime
   reservationEnd         DateTime
   checkedOutAt           DateTime?
@@ -679,22 +692,23 @@ model Rental {
   pickupNotes            String?
   returnNotes            String?
   internalNotes          String?
-  portalVisible          Boolean            @default(false)
+  portalVisible          Boolean             @default(false)
   createdByUserId        String
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-  organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  organization           Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   documentRelations      DocumentRelation[]
-  client                 Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  clientContact          ClientContact?     @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
-  project                Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  preparedBy             Employee?          @relation("RentalPreparer", fields: [preparedByEmployeeId], references: [id], onDelete: SetNull)
-  checkedOutBy           Employee?          @relation("RentalCheckoutEmployee", fields: [checkedOutByEmployeeId], references: [id], onDelete: SetNull)
-  receivedBy             Employee?          @relation("RentalReceiver", fields: [receivedByEmployeeId], references: [id], onDelete: SetNull)
-  createdBy              User               @relation("RentalCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  client                 Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientContact          ClientContact?      @relation(fields: [clientContactId], references: [id], onDelete: SetNull)
+  project                Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  preparedBy             Employee?           @relation("RentalPreparer", fields: [preparedByEmployeeId], references: [id], onDelete: SetNull)
+  checkedOutBy           Employee?           @relation("RentalCheckoutEmployee", fields: [checkedOutByEmployeeId], references: [id], onDelete: SetNull)
+  receivedBy             Employee?           @relation("RentalReceiver", fields: [receivedByEmployeeId], references: [id], onDelete: SetNull)
+  createdBy              User                @relation("RentalCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   items                  RentalItem[]
   activities             RentalActivity[]
   invoices               Invoice[]
+  ledgerTransactions     LedgerTransaction[]
 
   @@unique([organizationId, rentalNumber])
   @@index([organizationId, status, reservationStart, reservationEnd])
@@ -1132,22 +1146,22 @@ enum SignatureEventType {
 }
 
 model Invoice {
-  id                  String            @id @default(uuid())
+  id                  String              @id @default(uuid())
   organizationId      String
   invoiceNumber       String?
   clientId            String
   projectId           String?
   rentalId            String?
-  status              InvoiceStatus     @default(DRAFT)
-  issueDate           DateTime          @default(now())
+  status              InvoiceStatus       @default(DRAFT)
+  issueDate           DateTime            @default(now())
   dueDate             DateTime?
-  currency            String            @default("USD") @db.VarChar(3)
-  subtotal            Decimal           @default(0) @db.Decimal(14, 2)
-  taxTotal            Decimal           @default(0) @db.Decimal(14, 2)
-  discountTotal       Decimal           @default(0) @db.Decimal(14, 2)
-  total               Decimal           @default(0) @db.Decimal(14, 2)
-  amountPaid          Decimal           @default(0) @db.Decimal(14, 2)
-  balanceDue          Decimal           @default(0) @db.Decimal(14, 2)
+  currency            String              @default("USD") @db.VarChar(3)
+  subtotal            Decimal             @default(0) @db.Decimal(14, 2)
+  taxTotal            Decimal             @default(0) @db.Decimal(14, 2)
+  discountTotal       Decimal             @default(0) @db.Decimal(14, 2)
+  total               Decimal             @default(0) @db.Decimal(14, 2)
+  amountPaid          Decimal             @default(0) @db.Decimal(14, 2)
+  balanceDue          Decimal             @default(0) @db.Decimal(14, 2)
   notes               String?
   terms               String?
   clientReference     String?
@@ -1157,18 +1171,19 @@ model Invoice {
   sentAt              DateTime?
   paidAt              DateTime?
   voidedAt            DateTime?
-  portalPublished     Boolean           @default(false)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  client              Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project             Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  rental              Rental?           @relation(fields: [rentalId], references: [id], onDelete: SetNull)
-  createdBy           User              @relation("InvoiceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  document            Document?         @relation("InvoiceDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  portalPublished     Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  client              Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project             Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rental              Rental?             @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  createdBy           User                @relation("InvoiceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  document            Document?           @relation("InvoiceDocument", fields: [documentId], references: [id], onDelete: SetNull)
   lineItems           InvoiceLineItem[]
   payments            Payment[]
   activities          InvoiceActivity[]
+  ledgerTransactions  LedgerTransaction[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, status, dueDate])
@@ -1200,23 +1215,25 @@ model InvoiceLineItem {
 }
 
 model Payment {
-  id               String        @id @default(uuid())
-  organizationId   String
-  invoiceId        String
-  amount           Decimal       @db.Decimal(14, 2)
-  paymentDate      DateTime
-  method           PaymentMethod
-  reference        String?
-  notes            String?
-  recordedByUserId String
-  correctedAt      DateTime?
-  correctionReason String?
-  createdAt        DateTime      @default(now())
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  invoice          Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  recordedBy       User          @relation("PaymentRecorder", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  id                String             @id @default(uuid())
+  organizationId    String
+  invoiceId         String
+  amount            Decimal            @db.Decimal(14, 2)
+  paymentDate       DateTime
+  method            PaymentMethod
+  reference         String?
+  notes             String?
+  recordedByUserId  String
+  correctedAt       DateTime?
+  correctionReason  String?
+  createdAt         DateTime           @default(now())
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice           Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy        User               @relation("PaymentRecorder", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction?
 
   @@index([organizationId, invoiceId, paymentDate])
+  @@index([organizationId, paymentDate])
 }
 
 model InvoiceActivity {
@@ -1619,4 +1636,122 @@ model NotificationPreference {
 
   @@unique([userId, category, channel])
   @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Ledger, reporting and audit
+// ---------------------------------------------------------------------------
+
+enum LedgerTransactionType {
+  INCOME
+  EXPENSE
+  ADJUSTMENT
+}
+
+/// Operational categories only; there is no chart of accounts.
+model LedgerCategory {
+  id             String                 @id @default(uuid())
+  organizationId String
+  name           String
+  /// Optional hint so pickers can narrow the list; a category never forces a transaction type.
+  type           LedgerTransactionType?
+  description    String?
+  active         Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transactions   LedgerTransaction[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+/// A recorded business transaction. Amounts are exact decimals. INCOME and EXPENSE amounts are
+/// positive; an ADJUSTMENT is signed (positive raises, negative lowers net recorded activity).
+/// Transactions are voided, never deleted.
+model LedgerTransaction {
+  id                String                @id @default(uuid())
+  organizationId    String
+  transactionNumber String?
+  type              LedgerTransactionType
+  transactionDate   DateTime              @db.Date
+  description       String
+  amount            Decimal               @db.Decimal(14, 2)
+  currency          String                @default("USD") @db.VarChar(3)
+  categoryId        String?
+  clientId          String?
+  projectId         String?
+  rentalId          String?
+  invoiceId         String?
+  paymentId         String?               @unique
+  equipmentId       String?
+  reference         String?
+  notes             String?
+  createdByUserId   String
+  voidedAt          DateTime?
+  voidedByUserId    String?
+  voidReason        String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category          LedgerCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  client            Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project           Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rental            Rental?               @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  invoice           Invoice?              @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  payment           Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  equipment         Equipment?            @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  createdBy         User                  @relation("LedgerCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  voidedBy          User?                 @relation("LedgerVoider", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, transactionNumber])
+  @@index([organizationId, transactionDate])
+  @@index([organizationId, type, transactionDate])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, clientId])
+  @@index([organizationId, projectId])
+  @@index([organizationId, rentalId])
+  @@index([organizationId, invoiceId])
+}
+
+/// Append-only. A database trigger rejects UPDATE and DELETE (see the migration). Actor ids are
+/// plain values rather than foreign keys so deleting or renaming a user never rewrites history.
+model AuditEvent {
+  id                String       @id @default(uuid())
+  organizationId    String
+  actorUserId       String?
+  actorPortalUserId String?
+  /// Human label captured at the time (email or portal email) so the log stays readable.
+  actorLabel        String?
+  action            String
+  entityType        String
+  entityId          String?
+  outcome           String       @default("SUCCESS")
+  summary           String
+  metadata          Json?
+  ipAddress         String?
+  userAgent         String?
+  occurredAt        DateTime     @default(now())
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt(sort: Desc)])
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, action, occurredAt(sort: Desc)])
+  @@index([organizationId, actorUserId, occurredAt(sort: Desc)])
+}
+
+/// A named set of report filters (whitelisted query parameters), private to its owner.
+model SavedReportFilter {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  reportId       String
+  name           String
+  filters        Json
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reportId, name])
+  @@index([organizationId, userId, reportId])
 }

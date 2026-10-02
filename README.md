@@ -72,7 +72,7 @@ Implemented:
 - Project-role administration and project assignments on employee profiles
 - Live task metrics on the dashboard
 
-Calendar and Notifications are described below. Reports remains a placeholder.
+Calendar, Notifications, the Ledger, Reports and the Audit log are described below.
 
 ## Task Work Management
 
@@ -510,3 +510,50 @@ To add email: implement `Mailer` for the chosen provider (SMTP or an API), regis
 `npm test` runs the pure unit tests (dates, links, reminder tiers). `npm run test:integration` (needs a throwaway PostgreSQL via `DATABASE_URL`, and sets `INTEGRATION_TESTS=1`) exercises calendar aggregation, per-role authorization, time-zone behavior, filters, every immediate notification, scheduled reminders, idempotency, preferences, dismissal rules, pagination, organization isolation and link safety.
 
 The calendar/notification migration (`20261002070000_calendar_notifications`) is purely additive (new tables, enums and defaulted columns) and preserves production data. Apply it with `npm run db:migrate`.
+
+## Ledger
+
+`/ledger` is a lightweight record of money coming in and going out. It is **operational record-keeping, not an accounting system**: there is no double-entry, chart of accounts, bank reconciliation, tax handling or financial statements.
+
+- **Transactions** (`LedgerTransaction`): `INCOME`, `EXPENSE` or `ADJUSTMENT`. Only date, type, description and amount are required. Everything else is optional and independent: category, client, project, rental, invoice, payment, reference, notes, and (expenses only) equipment. Amounts are `Decimal(14,2)`; all arithmetic uses exact decimals (database `SUM`s combined with `Decimal`), never JavaScript floats. Income and expense amounts are positive (the database enforces it); an adjustment is signed and non-zero. Each transaction gets a number such as `LT-000123`, and carries its own currency, so totals are always per currency and never mixed.
+- **Categories** (`LedgerCategory`): your own labels under **Ledger → Categories**. None are built in; they never change how totals work.
+- **Net recorded activity** = income − expenses ± adjustments over the chosen date range and filters, excluding voided entries. It is deliberately not called profit: costs or revenue that were never recorded here are not represented.
+- **Invoice/payment integration:** recording a payment on an invoice posts one `INCOME` entry (linked to the payment, invoice, client, project and rental) in the same database transaction. It is deterministic and idempotent: `LedgerTransaction.paymentId` is unique and the insert is `ON CONFLICT DO NOTHING`, so retries, double submits or the backfill command can never create a second entry. Correcting a payment voids its ledger entry automatically (payment-linked entries cannot be voided by hand). Turn auto-posting off per organization under **Ledger → Categories**. Payments recorded before this release are not posted automatically; run `npm run ledger:backfill-payments` once (idempotent, honors the setting).
+- **Rentals:** estimated rental totals are never posted. Rental income reaches the ledger only through an invoice payment or a manual entry.
+- **Voiding:** transactions are never deleted. A void records who, when and why, keeps the original record untouched, and removes it from totals. It is audited.
+- **Permissions** (`ledger/authorization.ts`, the single source): administrators have full access. Managers get read-only access to entries tied to invoices they created or whose project they manage, projects they manage, or entries they created, and may record an entry only against a project they manage. Employees have no ledger access, and reports honour the same scope.
+
+## Reporting
+
+`/reports` lists curated reports by category (People, Qualifications, Projects, Tasks, Clients, Rentals and equipment, Invoices and financial, System and audit); you only see reports your role may run. There is no report designer and no free-form query builder. The dashboard remains the current snapshot; reports are filtered and historical.
+
+| Category | Reports |
+| --- | --- |
+| People | Employee directory, Headcount summary |
+| Qualifications | Qualification status, Missing required qualifications, Expiring qualifications (configurable days) |
+| Projects | Project summary, Project workload |
+| Tasks | Open, Overdue, Tasks by assignee, Tasks by project, Completed (date range) |
+| Clients | Client directory, Active projects by client, Outstanding invoices by client, Recent activity |
+| Rentals / equipment | Equipment inventory, Rental activity, Overdue rentals, Equipment utilization |
+| Invoices / financial | Invoice aging (Current, 1–30, 31–60, 61–90, 90+), Outstanding invoices, Payments received, Ledger activity, Income and expense summary |
+| System | Audit activity summary (administrators) |
+
+- **Permissions:** each report declares who may run it and applies the same row-level rule as the owning module (`projectVisibilityWhere`, `taskVisibilityWhere`, `clientVisibilityWhere`, `invoiceVisibilityWhere`, `ledgerVisibilityWhere`, …). People and qualification reports are administrators and managers (as the People module); financial reports are administrators and managers within their invoice/ledger scope; employees see only projects and tasks they can already open. Filters can only narrow a result, never widen it, and unknown parameters are ignored.
+- **Filters** are database predicates (date range, department, position, employee, project, client, status, qualification type), shape-validated and reflected in the URL. Lists are paginated (50 rows); aggregate reports are computed in the database. Logged-in users can save named filter sets per report (private, whitelisted values only).
+- **Exports:** every report offers **CSV** and **Excel (XLSX)** through one export service (`reports/export.ts`). An export re-runs the report on the server with the caller's own session, access rule, scope and re-validated filters (capped at 50,000 rows with a note). CSV cells that could be read as formulas (leading `=`, `+`, `-`, `@`, tab, CR) are prefixed with an apostrophe, numeric money/number columns stay numeric, and the file has a UTF-8 BOM. XLSX writes text as inline strings, which spreadsheets never evaluate. PDF is only available for invoices (existing); it is not offered for reports.
+- **Interpretation limits:** each report shows how to read it. In particular: overdue is a date comparison in your time zone; invoice aging buckets are by due date, per currency, and exclude drafts and voided invoices; equipment utilization = days out ÷ days in the period (checkout to return, or to now if still out) for rentable, active assets, and measures time out, not revenue; headcount counts records, not demographics; financial reports are operational summaries, not accounting statements.
+
+## Audit log
+
+`/administration/audit` (administrators only) is an append-only record of security and business-critical actions: who, what, when, which record and the result, with a human-readable detail page (before/after table and context) and history per record.
+
+- **What is audited** (action names live in `modules/audit/actions.ts`, `domain.subject.verb`): sign-in success, sign-in failure (volume-limited per address), sign-out, password change/reset; user created, activated, deactivated, role changed; employee created/updated/status changed; qualification added, updated, verified, rejected, archived; project created, updated, status changed, archived; task created, reassigned, completed; client created, updated, archived; equipment status/condition changes, rental checked out, returned, rental status changes; document uploaded, version added, archived/restored, and retrieval of restricted documents; signature requests sent, completed, declined, cancelled; invoices created, edited while draft, issued, voided; payments recorded and corrected; ledger entries created and voided; portal invitations, activations, access changes, password changes and approval responses. Validation errors, reads and routine edits are not audited.
+- **Same transaction:** business changes call `audit.record(tx, …)` inside their database transaction wherever the change is a database write, so a rolled-back change leaves no event and a failed event rolls the change back. Only events with no business write (failed sign-ins, sign-out, restricted-document retrieval) use the standalone writer, which never throws. All writes go through `audit.record`; there are no scattered `auditEvent.create` calls.
+- **Metadata sanitization** (`audit/sanitize.ts`): change sets come from explicit field allow-lists via `diffChanges`, never whole records, and every event is sanitized again centrally: keys that look like passwords, hashes, tokens, secrets, API keys, cookies, sessions, storage keys, checksums or credentials are dropped at any depth, values are reduced to short scalars, and the detail page re-sanitizes on read. Credential numbers, personal contact details, notes, file names and document contents are never stored. Failed-login events store only the attempted address (when it looks like one) and a reason code.
+- **Actors:** `actorUserId` (internal user) and `actorPortalUserId` (client portal user) are separate and mutually exclusive, with a readable label captured at the time, so a portal action is never attributed to an employee. System/provider actions (for example verified e-signature webhooks) have no user. Actor ids are plain values, not foreign keys, so removing a user never alters history. IP address and user agent come from the request (behind Traefik, the first `X-Forwarded-For` entry; treat as informational).
+- **Authorization and immutability:** the page, the detail page and the audit report require the administrator role and are scoped to the caller's organization. The application has no edit or delete path, and a database trigger (`AuditEvent_immutable`) rejects every `UPDATE` and `DELETE`, so even a bug or an administrator's SQL session cannot rewrite history by accident.
+- **Retention:** nothing is pruned automatically; the log is paginated and indexed (`occurredAt`, entity, action, actor). If retention is needed later, do it as a deliberate, separately-authorized procedure (for example archive old rows to cold storage, then drop them in a maintenance window that temporarily disables the trigger and records the pruning itself) and document it. Partitioning by month is the natural next step for very large volumes.
+
+## Migration notes (ledger, reports, audit)
+
+`20261003000000_ledger_reports_audit` is additive: new tables and enums, defaulted organization columns, new indexes (ledger date/type/category/client/project/rental/invoice, audit time/entity/action/actor, `Payment.paymentDate`, `Task.completedAt`), a check constraint on ledger amounts and the audit immutability trigger. Existing data is untouched. Apply it with `npm run db:migrate`, then optionally run `npm run ledger:backfill-payments` once.

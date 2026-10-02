@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { getCurrentOrganization } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 import { canEditEmployee, requireRole } from "@/lib/auth/session";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { diffChanges } from "@/modules/audit/sanitize";
+import { audit, userActor } from "@/modules/audit/service";
 import {
   departmentSchema,
   employeeSchema,
@@ -55,8 +58,11 @@ function positionFormData(formData: FormData) {
   };
 }
 
+/** Allow-listed audit fields; personal contact details and notes are deliberately excluded. */
+const EMPLOYEE_AUDIT_FIELDS = ["employeeNumber", "firstName", "lastName", "departmentId", "positionId", "supervisorId", "employmentStatus", "hireDate", "separationDate", "workEmail"] as const;
+
 export async function createEmployee(formData: FormData) {
-  await requireRole("ADMIN");
+  const actor = await requireRole("ADMIN");
   const parsed = employeeSchema.safeParse(employeeFormData(formData));
   if (!parsed.success) {
     errorRedirect("/people/new", flattenError(parsed.error));
@@ -66,11 +72,19 @@ export async function createEmployee(formData: FormData) {
   let employeeId: string;
 
   try {
-    const employee = await prisma.employee.create({
-      data: {
-        ...parsed.data,
-        organizationId: organization.id,
-      },
+    const employee = await prisma.$transaction(async (tx) => {
+      const created = await tx.employee.create({
+        data: {
+          ...parsed.data,
+          organizationId: organization.id,
+        },
+      });
+      await audit.record(tx, {
+        organizationId: organization.id, actor: userActor(actor), action: AUDIT_ACTIONS.employeeCreated, entityType: "Employee", entityId: created.id,
+        summary: `Employee ${created.firstName} ${created.lastName} created`,
+        metadata: { employeeNumber: created.employeeNumber, departmentId: created.departmentId, positionId: created.positionId, employmentStatus: created.employmentStatus },
+      });
+      return created;
     });
     employeeId = employee.id;
   } catch {
@@ -119,7 +133,6 @@ export async function updateEmployee(formData: FormData) {
   const organization = await getCurrentOrganization();
   const existing = await prisma.employee.findFirst({
     where: { id, organizationId: organization.id },
-    select: { id: true },
   });
 
   if (!existing) {
@@ -127,9 +140,18 @@ export async function updateEmployee(formData: FormData) {
   }
 
   try {
-    await prisma.employee.update({
-      data: parsed.data,
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.employee.update({ data: parsed.data, where: { id } });
+      const changes = diffChanges(existing, updated, EMPLOYEE_AUDIT_FIELDS);
+      const base = { organizationId: organization.id, actor: userActor(user), entityType: "Employee" as const, entityId: id };
+      const statusChange = changes.find((change) => change.field === "employmentStatus");
+      const other = changes.filter((change) => change.field !== "employmentStatus");
+      if (statusChange) {
+        await audit.record(tx, { ...base, action: AUDIT_ACTIONS.employeeStatusChanged, summary: `Employment status changed from ${statusChange.from} to ${statusChange.to}`, changes: [statusChange] });
+      }
+      if (other.length) {
+        await audit.record(tx, { ...base, action: AUDIT_ACTIONS.employeeUpdated, summary: `Employee ${updated.firstName} ${updated.lastName} updated (${other.map((c) => c.field).join(", ")})`, changes: other });
+      }
     });
   } catch {
     errorRedirect(
