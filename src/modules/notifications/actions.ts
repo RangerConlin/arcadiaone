@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import type { NotificationCategory } from "@/generated/prisma/enums";
-import { requireAuthenticatedUser, requireRole } from "@/lib/auth/session";
+import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { isValidTimeZone } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
 import { NOTIFICATION_CATEGORIES } from "./constants";
@@ -47,22 +46,4 @@ export async function saveAccountTimeZone(data: FormData) {
   await prisma.user.update({ where: { id: user.id }, data: { timezone: zone || null } });
   refresh();
   redirect("/account?success=Time zone saved.");
-}
-
-const days = (label: string, max: number) => z.coerce.number({ error: `${label} must be a number.` }).int().min(1, `${label} must be at least 1.`).max(max, `${label} must be at most ${max}.`);
-const settingsSchema = z.object({
-  timezone: z.string().refine(isValidTimeZone, "Choose a valid time zone."),
-  taskDueSoonDays: days("Task due-soon window", 60),
-  rentalDueSoonDays: days("Rental due-soon window", 60),
-  invoiceDueSoonDays: days("Invoice due-soon window", 90),
-  notificationArchiveAfterDays: z.coerce.number().int().min(0, "Archive window cannot be negative.").max(3650),
-});
-
-export async function saveReminderSettings(data: FormData) {
-  const admin = await requireRole("ADMIN");
-  const parsed = settingsSchema.safeParse(Object.fromEntries([...data.entries()].map(([key, value]) => [key, String(value).trim()])));
-  if (!parsed.success) redirect(`/administration/reminders?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid settings.")}`);
-  await prisma.organization.update({ where: { id: admin.organizationId }, data: parsed.data! });
-  refresh();
-  redirect("/administration/reminders?success=Settings saved.");
 }

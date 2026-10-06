@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { requireAuthenticatedUser } from "@/lib/auth/session";
+import { ExportList } from "@/modules/import-export/export-list";
 import { reportsFor } from "@/modules/reports/registry";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function ReportsPage() {
         description="Filtered and historical views you can review and export. The dashboard shows the current snapshot; reports go deeper. You only see reports your role may run, and each one shows only records you can access."
         title="Reports"
       />
+      <section className="mb-6"><h2 className="mb-2 text-base font-semibold">Data exports (CSV)</h2><ExportList user={user} /></section>
       <div className="grid gap-6">
         {categories.map((category) => (
           <section aria-labelledby={`cat-${category.id}`} key={category.id}>

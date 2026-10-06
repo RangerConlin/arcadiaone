@@ -9,11 +9,11 @@ type Actor = { id: string; email: string; organizationId: string };
 
 /** Allocates the next per-organization transaction number atomically (inside the caller's transaction). */
 async function nextTransactionNumber(tx: Tx, organizationId: string) {
-  const rows = await tx.$queryRaw<Array<{ seq: number }>>`
+  const rows = await tx.$queryRaw<Array<{ prefix: string; seq: number }>>`
     UPDATE "Organization" SET "nextLedgerSequence" = "nextLedgerSequence" + 1
-    WHERE id = ${organizationId} RETURNING "nextLedgerSequence" - 1 AS seq`;
+    WHERE id = ${organizationId} RETURNING "ledgerPrefix" AS prefix, "nextLedgerSequence" - 1 AS seq`;
   if (!rows[0]) throw new Error("Organization not found.");
-  return `LT-${String(rows[0].seq).padStart(6, "0")}`;
+  return `${rows[0].prefix}${String(rows[0].seq).padStart(6, "0")}`;
 }
 
 export type NewTransaction = {

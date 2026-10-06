@@ -3,7 +3,10 @@ import { logout } from "@/lib/auth/actions";
 import type { AuthenticatedUser } from "@/lib/auth/session";
 import { PanelNav, RailNav, type NavModule } from "@/components/shell-nav";
 
-function buildModules(user: AuthenticatedUser): NavModule[] {
+export type ShellFeatures = { rentals: boolean; ledger: boolean; training: boolean; maintenance: boolean; clientPortal: boolean };
+const allFeatures: ShellFeatures = { rentals: true, ledger: true, training: true, maintenance: true, clientPortal: true };
+
+function buildModules(user: AuthenticatedUser, features: ShellFeatures): NavModule[] {
   const home: NavModule = { id: "home", label: "Dashboard", railLabel: "Home", icon: "home", href: "/", prefix: "/", subs: [{ label: "Dashboard", href: "/" }] };
   const qualifications = { label: "Qualifications", href: "/people/qualifications" };
   const rentals: NavModule = {
@@ -36,6 +39,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     subs: [{ label: "Transactions", href: "/ledger" }, { label: "New transaction", href: "/ledger/new" }, ...(user.role === "ADMIN" ? [{ label: "Categories", href: "/ledger/categories" }] : [])],
   };
 
+  const optional = (flag: keyof ShellFeatures, module: NavModule) => (features[flag] ? [module] : []);
+
   if (user.role === "EMPLOYEE") {
     const profile = user.employeeId ? [{ label: "My Profile", href: `/people/${user.employeeId}` }] : [];
     return [
@@ -43,10 +48,10 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
       { id: "people", label: "People", icon: "people", href: profile[0]?.href ?? qualifications.href, prefix: "/people", subs: [...profile, qualifications] },
       projects,
       clients,
-      rentals,
+      ...optional("rentals", rentals),
       calendar,
-      training,
-      maintenance,
+      ...optional("training", training),
+      ...optional("maintenance", maintenance),
       reports,
       documents,
       { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }] },
@@ -58,16 +63,16 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
     { id: "people", label: "People", icon: "people", href: "/people", prefix: "/people", subs: [{ label: "Directory", href: "/people" }, qualifications] },
     projects,
     clients,
-    rentals,
+    ...optional("rentals", rentals),
     { id: "tasks", label: "Tasks", icon: "tasks", href: "/tasks", prefix: "/tasks", subs: [{ label: "All tasks", href: "/tasks" }, { label: "New task", href: "/tasks/new" }] },
     calendar,
-    training,
-    maintenance,
+    ...optional("training", training),
+    ...optional("maintenance", maintenance),
     reports,
     documents,
     { id: "signatures", label: "E-Signatures", railLabel: "Sign", icon: "signatures", href: "/signatures", prefix: "/signatures", subs: [{ label: "Requests", href: "/signatures" }, { label: "Prepare", href: "/signatures/new" }] },
     { id: "invoices", label: "Invoices", icon: "invoices", href: "/invoices", prefix: "/invoices", subs: [{ label: "Invoices", href: "/invoices" }, { label: "New draft", href: "/invoices/new" }] },
-    ledger,
+    ...optional("ledger", ledger),
     ...(user.role === "ADMIN"
       ? [{
           id: "admin", label: "Administration", railLabel: "Admin", icon: "admin" as const, href: "/administration", prefix: "/administration",
@@ -79,7 +84,8 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
             { label: "Project roles", href: "/administration/project-roles" },
             { label: "Users", href: "/administration/users" },
             { label: "Documents", href: "/administration/documents" },
-            { label: "Calendar & reminders", href: "/administration/reminders" },
+            { label: "Settings", href: "/administration/settings" },
+            { label: "Import / export", href: "/administration/import-export" },
             { label: "Training courses", href: "/administration/training-courses" },
             { label: "Training and maintenance", href: "/administration/lifecycle" },
             { label: "Audit log", href: "/administration/audit" },
@@ -89,17 +95,24 @@ function buildModules(user: AuthenticatedUser): NavModule[] {
   ];
 }
 
-export function AppShell({ children, notifications, organizationName, user }: { children: React.ReactNode; notifications?: React.ReactNode; organizationName: string; user: AuthenticatedUser }) {
-  const modules = buildModules(user);
+export function AppShell({ children, features = allFeatures, hasLogo = false, notifications, organizationName, search, user }: { children: React.ReactNode; features?: ShellFeatures; hasLogo?: boolean; notifications?: React.ReactNode; organizationName: string; search?: React.ReactNode; user: AuthenticatedUser }) {
+  const modules = buildModules(user, features);
   return (
     <div className="app-shell">
       <RailNav modules={modules} />
       <div className="app-col">
         <header className="app-top">
-          <div>
-            <p className="app-org">{organizationName}</p>
-            <p className="app-tagline">Employee and project management</p>
+          <div className="app-brand">
+            {hasLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="" className="app-logo" src="/branding/logo" />
+            ) : null}
+            <div>
+              <p className="app-org">{organizationName}</p>
+              <p className="app-tagline">Employee and project management</p>
+            </div>
           </div>
+          {search}
           <div className="app-user">
             {notifications}
             <div className="text-right">

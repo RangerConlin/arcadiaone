@@ -2,7 +2,7 @@ import type { NotificationCategory, NotificationType } from "@/generated/prisma/
 
 export const NOTIFICATION_CATEGORIES = [
   "TASK_ASSIGNMENTS", "TASK_REMINDERS", "QUALIFICATIONS", "RENTALS", "INVOICES",
-  "SIGNATURES", "APPROVALS", "PROJECT_UPDATES", "DOCUMENTS", "TRAINING", "MAINTENANCE",
+  "SIGNATURES", "APPROVALS", "PROJECT_UPDATES", "DOCUMENTS", "TRAINING", "MAINTENANCE", "SYSTEM",
 ] as const satisfies readonly NotificationCategory[];
 
 export const CATEGORY_LABELS: Record<NotificationCategory, { label: string; description: string }> = {
@@ -17,6 +17,7 @@ export const CATEGORY_LABELS: Record<NotificationCategory, { label: string; desc
   DOCUMENTS: { label: "Documents", description: "Documents shared with you or your projects." },
   TRAINING: { label: "Training", description: "Enrollments, upcoming and changed sessions, and records awaiting verification." },
   MAINTENANCE: { label: "Equipment maintenance", description: "Service due or overdue, equipment taken out of service, and completed work." },
+  SYSTEM: { label: "System", description: "Administrative notices such as finished data imports." },
 };
 
 /** Single source of truth for which preference category governs each notification type. */
@@ -44,6 +45,7 @@ export const TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
   MAINTENANCE_OVERDUE: "MAINTENANCE",
   MAINTENANCE_COMPLETED: "MAINTENANCE",
   EQUIPMENT_UNAVAILABLE: "MAINTENANCE",
+  IMPORT_COMPLETED: "SYSTEM",
 };
 
 /**
@@ -80,6 +82,7 @@ export const TYPE_LABELS: Record<NotificationType, string> = {
   MAINTENANCE_OVERDUE: "Maintenance overdue",
   MAINTENANCE_COMPLETED: "Maintenance completed",
   EQUIPMENT_UNAVAILABLE: "Equipment unavailable",
+  IMPORT_COMPLETED: "Import finished",
 };
 
 /** Overdue/expired items get a stronger visual treatment in lists. */

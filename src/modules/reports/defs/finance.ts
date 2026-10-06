@@ -77,6 +77,34 @@ const outstanding: ReportDefinition = {
   },
 };
 
+const INVOICE_STATUS_OPTIONS = ["DRAFT", "ISSUED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"].map((value) => ({ value, label: String(label(value)) }));
+const register: ReportDefinition = {
+  id: "invoice-register", category: "financial", title: "Invoice register",
+  description: "Every invoice you can access, with status, totals and balance. Useful as a full invoice export.",
+  filters: ["client", "project", "status", "dateRange"], statusOptions: INVOICE_STATUS_OPTIONS, access: financial,
+  definition: `The date range filters on issue date. ${OPERATIONAL}`,
+  async run(ctx) {
+    const f = ctx.filters;
+    const where: Prisma.InvoiceWhereInput = {
+      AND: [
+        invoiceVisibilityWhere(ctx.user),
+        ...(f.status ? [{ status: f.status as never }] : []),
+        ...(f.client ? [{ clientId: f.client }] : []), ...(f.project ? [{ projectId: f.project }] : []),
+        ...(f.from ? [{ issueDate: { gte: keyToDate(f.from) } }] : []), ...(f.to ? [{ issueDate: { lte: keyToDate(f.to) } }] : []),
+      ],
+    };
+    const [rows, total] = await prisma.$transaction([
+      prisma.invoice.findMany({ where, include: { client: { select: { name: true } }, project: { select: { name: true } } }, orderBy: [{ issueDate: "desc" }, { id: "asc" }], ...window(ctx) }),
+      prisma.invoice.count({ where }),
+    ]);
+    return {
+      total, notes: [OPERATIONAL],
+      columns: [{ label: "Invoice" }, { label: "Status", type: "status" }, { label: "Client" }, { label: "Project" }, { label: "Issued" }, { label: "Due" }, { label: "Total", type: "money" }, { label: "Paid", type: "money" }, { label: "Balance", type: "money" }, { label: "Currency" }],
+      rows: rows.map((i) => [i.invoiceNumber, label(i.status), i.client.name, i.project?.name ?? null, dateCell(i.issueDate), dateCell(i.dueDate), plainDecimal(i.total), plainDecimal(i.amountPaid), plainDecimal(i.balanceDue), i.currency]),
+    };
+  },
+};
+
 const payments: ReportDefinition = {
   id: "payments-received", category: "financial", title: "Payments received",
   description: "Payments recorded against invoices in a date range (default: last 30 days).",
@@ -174,4 +202,4 @@ const incomeExpense: ReportDefinition = {
   },
 };
 
-export const financeReports = [aging, outstanding, payments, ledgerActivity, incomeExpense];
+export const financeReports = [aging, outstanding, register, payments, ledgerActivity, incomeExpense];

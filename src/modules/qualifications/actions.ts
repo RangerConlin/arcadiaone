@@ -70,20 +70,25 @@ export async function saveEmployeeQualification(data: FormData) {
     expirationDate = calculateExpirationDate(parsedData.issueDate, type.defaultValidityMonths);
   }
   const payload = { ...parsedData, expirationDate };
+  // Optional organization policy: entries made by an administrator are verified on save.
+  const autoVerify = editor.role === "ADMIN" && organization.qualificationAutoVerifyAdminEntries;
+  const verification = autoVerify
+    ? { verificationStatus: "VERIFIED" as const, verifiedAt: new Date(), verifiedByUserId: editor.id, verificationNote: "Verified automatically (administrator entry)." }
+    : { verificationStatus: "UNVERIFIED" as const, verifiedAt: null, verifiedByUserId: null, verificationNote: null };
   if (id) {
     const existing = await prisma.employeeQualification.findFirst({ where: { id, employeeId, organizationId: organization.id } });
     if (!existing) fail(`/people/${employeeId}`, "Qualification record was not found.");
     await prisma.$transaction(async (tx) => {
-      const updated = await tx.employeeQualification.update({ where: { id }, data: { ...payload, verificationStatus: "UNVERIFIED", verifiedAt: null, verifiedByUserId: null, verificationNote: null } });
+      const updated = await tx.employeeQualification.update({ where: { id }, data: { ...payload, ...verification } });
       await audit.record(tx, {
         organizationId: organization.id, actor: userActor(editor), action: AUDIT_ACTIONS.qualificationUpdated, entityType: "EmployeeQualification", entityId: id,
-        summary: `${type.name} updated for ${employee.firstName} ${employee.lastName}; resubmitted for verification`,
+        summary: `${type.name} updated for ${employee.firstName} ${employee.lastName}; ${autoVerify ? "verified automatically" : "resubmitted for verification"}`,
         changes: diffChanges(existing, updated, QUALIFICATION_AUDIT_FIELDS), metadata: { employeeId },
       });
     });
   } else {
     await prisma.$transaction(async (tx) => {
-      const created = await tx.employeeQualification.create({ data: { ...payload, organizationId: organization.id } });
+      const created = await tx.employeeQualification.create({ data: { ...payload, ...verification, organizationId: organization.id } });
       await audit.record(tx, {
         organizationId: organization.id, actor: userActor(editor), action: AUDIT_ACTIONS.qualificationAdded, entityType: "EmployeeQualification", entityId: created.id,
         summary: `${type.name} added for ${employee.firstName} ${employee.lastName}`,
@@ -91,7 +96,7 @@ export async function saveEmployeeQualification(data: FormData) {
       });
     });
   }
-  redirect(`/people/${employeeId}?success=Qualification saved and submitted for verification.`);
+  redirect(`/people/${employeeId}?success=${autoVerify ? "Qualification saved and verified." : "Qualification saved and submitted for verification."}`);
 }
 
 export async function reviewQualification(data: FormData) {
@@ -146,11 +151,3 @@ export async function removePositionRequirement(data: FormData) {
   redirect(`/administration/positions/${positionId}/edit?success=Requirement removed.`);
 }
 
-export async function updateQualificationSettings(data: FormData) {
-  await requireRole("ADMIN");
-  const days = Number(value(data, "warningDays"));
-  if (!Number.isInteger(days) || days < 1 || days > 365) fail("/administration/qualifications", "Warning threshold must be 1–365 days.");
-  const organization = await getCurrentOrganization();
-  await prisma.organization.update({ where: { id: organization.id }, data: { qualificationExpirationWarningDays: days } });
-  redirect("/administration/qualifications?success=Expiration warning threshold updated.");
-}

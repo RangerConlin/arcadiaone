@@ -20,6 +20,7 @@ export const notificationLinks = {
   trainingRecord: (id: string) => `/training/records/${id}`,
   maintenance: (id: string) => `/maintenance/${id}`,
   equipment: (id: string) => `/rentals/equipment/${id}`,
+  importJob: (id: string) => `/administration/import-export/${id}`,
 } as const;
 
 const ALLOWED: RegExp[] = [
@@ -34,6 +35,7 @@ const ALLOWED: RegExp[] = [
   new RegExp(`^/training/(sessions|records)/${ID}$`),
   new RegExp(`^/maintenance/${ID}$`),
   new RegExp(`^/rentals/equipment/${ID}$`),
+  new RegExp(`^/administration/import-export/${ID}$`),
 ];
 
 /** Defense in depth: only same-origin, known application routes are ever redirected to. */

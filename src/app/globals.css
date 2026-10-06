@@ -739,3 +739,13 @@ a.notif-link:hover .notif-title { text-decoration: underline; }
 .cal-filterbox > summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 6px 2px; width: fit-content; }
 .cal-filterbox[open] > summary { margin-bottom: 8px; }
 .cal-filterbox .cal-filters { margin-bottom: 0; }
+
+.app-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.app-logo { max-height: 40px; width: auto; max-width: 140px; object-fit: contain; }
+.app-search { position: relative; flex: 1 1 280px; max-width: 460px; }
+.app-search input { width: 100%; }
+.app-search-panel { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 40; max-height: 70vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 2px; background: var(--panel); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); }
+.app-search-panel h3 { margin: 0; padding: 6px 12px 2px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.app-search-panel a { display: block; padding: 6px 12px; font-size: 13px; }
+.app-search-panel a[aria-selected="true"], .app-search-panel a:hover { background: var(--accent-soft, rgba(0, 0, 0, 0.06)); }
+@media (max-width: 760px) { .app-search { flex-basis: 100%; order: 3; max-width: none; } .app-top { flex-wrap: wrap; } }

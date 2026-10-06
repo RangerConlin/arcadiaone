@@ -405,7 +405,9 @@ describe("ledger, reports and audit (database)", { skip: !enabled }, () => {
     assert.equal(parse({ action: "x'; drop table", entityType: "Nope" }).action, undefined);
     assert.equal(parse({ entityType: "Nope" }).entityType, undefined);
     // The audit-summary report is a second, admin-only view.
-    const summary = (await run(users.admin, "audit-activity-summary", { from: today, to: today }))!;
+    // The report interprets its range in the report time zone, so use that zone's calendar day (not UTC's).
+    const zoneToday = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const summary = (await run(users.admin, "audit-activity-summary", { from: zoneToday, to: zoneToday }))!;
     assert.ok(summary.rows.some((r) => r[0] === "task.created" && r[1] === 60));
   });
 });

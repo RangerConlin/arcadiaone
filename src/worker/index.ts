@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sweepImportJobs } from "@/modules/import-export/engine";
 import { runNotificationJobs } from "@/modules/notifications/jobs";
 
 /**
@@ -14,6 +15,8 @@ async function tick() {
   try {
     const summary = await runNotificationJobs({ log: (line) => console.error(`[worker] ${line}`) });
     console.log(`[worker] ${new Date().toISOString()} ${JSON.stringify(summary)} (${Date.now() - startedAt}ms)`);
+    const imports = await sweepImportJobs();
+    if (imports.started || imports.interrupted) console.log(`[worker] imports ${JSON.stringify(imports)}`);
   } catch (error) {
     console.error("[worker] run failed:", error instanceof Error ? error.message : error);
   }

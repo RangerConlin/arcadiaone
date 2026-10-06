@@ -74,6 +74,16 @@ export const AUDIT_ACTIONS = {
   equipmentPlacedOutOfService: "equipment.unavailable",
   equipmentReturnedToService: "equipment.returned_to_service",
   maintenanceSettingsChanged: "maintenance.settings.changed",
+  settingsIdentityChanged: "settings.identity.changed",
+  settingsBrandingChanged: "settings.branding.changed",
+  settingsNumberingChanged: "settings.numbering.changed",
+  settingsThresholdsChanged: "settings.thresholds.changed",
+  settingsDefaultsChanged: "settings.defaults.changed",
+  settingsNotificationsChanged: "settings.notifications.changed",
+  settingsFeaturesChanged: "settings.features.changed",
+  importCompleted: "import.completed",
+  importFailed: "import.failed",
+  exportGenerated: "export.generated",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -81,7 +91,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 export const AUDIT_ENTITY_TYPES = [
   "User", "Employee", "EmployeeQualification", "Project", "Task", "Client", "Equipment", "Rental", "Document",
   "SignatureRequest", "Invoice", "Payment", "LedgerTransaction", "ClientPortalUser", "ClientApprovalRequest",
-  "TrainingCourse", "TrainingSession", "EmployeeTrainingRecord", "MaintenanceRecord", "MaintenanceSchedule", "Organization",
+  "TrainingCourse", "TrainingSession", "EmployeeTrainingRecord", "MaintenanceRecord", "MaintenanceSchedule", "Organization", "ImportJob",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
@@ -103,6 +113,8 @@ export function auditEntityHref(entityType: string, entityId: string | null | un
     case "TrainingSession": return `/training/sessions/${entityId}`;
     case "EmployeeTrainingRecord": return `/training/records/${entityId}`;
     case "MaintenanceRecord": return `/maintenance/${entityId}`;
+    case "ImportJob": return `/administration/import-export/${entityId}`;
+    case "Organization": return "/administration/settings";
     default: return null;
   }
 }

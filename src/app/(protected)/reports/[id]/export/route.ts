@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/session";
 import { dateKeyInZone } from "@/lib/datetime";
+import { AUDIT_ACTIONS } from "@/modules/audit/actions";
+import { audit, userActor } from "@/modules/audit/service";
 import { safeFilename, toCsv, toXlsx } from "@/modules/reports/export";
 import { filtersToQuery } from "@/modules/reports/filters";
 import { prepareReport, runPrepared } from "@/modules/reports/run";
@@ -22,6 +24,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const format = request.nextUrl.searchParams.get("format") === "xlsx" ? "xlsx" : "csv";
   const result = await runPrepared(prepared);
   const meta = { title: prepared.definition.title, filtersDescription: filtersToQuery(prepared.filters).replaceAll("&", ", ") || "none" };
+  // Exports of business data are recorded (what was exported and how much, never the contents).
+  await audit.recordStandalone({
+    organizationId: user.organizationId, actor: userActor(user), action: AUDIT_ACTIONS.exportGenerated, entityType: "Organization", entityId: user.organizationId,
+    summary: `Exported “${prepared.definition.title}” as ${format.toUpperCase()}`, metadata: { report: prepared.definition.id, format, rows: result.rows.length, filters: meta.filtersDescription },
+  });
   const stamp = dateKeyInZone(prepared.ctx.now, prepared.ctx.zone);
   const headers = {
     "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",

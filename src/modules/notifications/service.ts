@@ -39,10 +39,14 @@ export class RecipientCache {
     });
     let recipient: Recipient | null = null;
     if (user) {
-      const off = await prisma.notificationPreference.findMany({
-        where: { userId, channel: "IN_APP", enabled: false }, select: { category: true },
-      });
-      recipient = { ...user, disabled: new Set(off.map((row) => row.category)) };
+      // A user's own choice wins; otherwise the organization default applies.
+      const [prefs, org] = await Promise.all([
+        prisma.notificationPreference.findMany({ where: { userId, channel: "IN_APP" }, select: { category: true, enabled: true } }),
+        prisma.organization.findUnique({ where: { id: this.organizationId }, select: { notificationDefaultOffCategories: true } }),
+      ]);
+      const disabled = new Set<NotificationCategory>(org?.notificationDefaultOffCategories ?? []);
+      for (const row of prefs) { if (row.enabled) disabled.delete(row.category); else disabled.add(row.category); }
+      recipient = { ...user, disabled };
     }
     this.cache.set(userId, recipient);
     return recipient;
@@ -156,7 +160,9 @@ export async function getOpenTarget(viewer: Viewer, id: string) {
 export async function getPreferences(viewer: Viewer) {
   const rows = await prisma.notificationPreference.findMany({ where: { userId: viewer.id, organizationId: viewer.organizationId } });
   const lookup = new Map(rows.map((row) => [`${row.category}:${row.channel}`, row.enabled]));
-  return (category: NotificationCategory, channel: NotificationChannel) => lookup.get(`${category}:${channel}`) ?? channel === "IN_APP";
+  const org = await prisma.organization.findUnique({ where: { id: viewer.organizationId }, select: { notificationDefaultOffCategories: true } });
+  const orgOff = new Set<NotificationCategory>(org?.notificationDefaultOffCategories ?? []);
+  return (category: NotificationCategory, channel: NotificationChannel) => lookup.get(`${category}:${channel}`) ?? (channel === "IN_APP" && !orgOff.has(category));
 }
 
 export async function setInAppPreference(viewer: Viewer, category: NotificationCategory, enabled: boolean) {

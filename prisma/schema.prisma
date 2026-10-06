@@ -97,6 +97,86 @@ model Organization {
   maintenanceRecords                     MaintenanceRecord[]
   maintenanceSchedules                   MaintenanceSchedule[]
   meterReadings                          MeterReading[]
+  // Organization identity and branding (Administration → Settings).
+  legalName                              String?
+  displayName                            String?
+  phone                                  String?
+  generalEmail                           String?
+  website                                String?
+  logoStorageKey                         String?
+  logoMimeType                           String?
+  // Numbering (invoice and ledger sequences live above/below; project, client, rental and
+  // equipment sequences live in NumberSequence).
+  ledgerPrefix                           String                             @default("LT-")
+  // Qualification, rental and invoice defaults.
+  qualificationAutoVerifyAdminEntries    Boolean                            @default(false)
+  defaultRentalTerms                     String?
+  invoiceDefaultDueDays                  Int?
+  invoiceDefaultTerms                    String?
+  // Notification defaults: categories off by default for users who have not set a preference.
+  notificationDefaultOffCategories       NotificationCategory[]             @default([])
+  // Lightweight navigation / UI availability flags. They never hide or delete data.
+  featureRentals                         Boolean                            @default(true)
+  featureLedger                          Boolean                            @default(true)
+  featureTraining                        Boolean                            @default(true)
+  featureMaintenance                     Boolean                            @default(true)
+  featureClientPortal                    Boolean                            @default(true)
+  numberSequences                        NumberSequence[]
+  importJobs                             ImportJob[]
+}
+
+/// Per-organization human-readable number sequence (project, client, rental, equipment).
+/// Allocation is a single atomic UPDATE ... RETURNING so concurrent requests never share a number.
+model NumberSequence {
+  id             String       @id @default(uuid())
+  organizationId String
+  entity         String
+  prefix         String       @default("")
+  nextValue      Int          @default(1)
+  autoAssign     Boolean      @default(true)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, entity])
+}
+
+enum ImportJobStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  CANCELLED
+}
+
+/// One CSV/XLSX import. The parsed rows are staged only until the job finishes (or is cancelled
+/// / expires) and are then cleared; the original upload is never kept.
+model ImportJob {
+  id               String          @id @default(uuid())
+  organizationId   String
+  entityType       String
+  filename         String
+  uploadedByUserId String
+  mode             String          @default("CREATE")
+  status           ImportJobStatus @default(PENDING)
+  mapping          Json?
+  stagedRows       Json?
+  rowsTotal        Int             @default(0)
+  rowsProcessed    Int             @default(0)
+  rowsCreated      Int             @default(0)
+  rowsUpdated      Int             @default(0)
+  rowsRejected     Int             @default(0)
+  summary          Json?
+  errorMessage     String?
+  createdAt        DateTime        @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  uploadedBy       User            @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Department {
@@ -179,6 +259,10 @@ model Employee {
   @@index([positionId])
   @@index([supervisorId])
   @@index([lastName, firstName])
+  @@index([firstName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Employee_firstName_trgm")
+  @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Employee_lastName_trgm")
+  @@index([employeeNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Employee_employeeNumber_trgm")
+  @@index([workEmail(ops: raw("gin_trgm_ops"))], type: Gin, map: "Employee_workEmail_trgm")
 }
 
 model Project {
@@ -220,6 +304,8 @@ model Project {
   @@index([organizationId, projectManagerId])
   @@index([organizationId, name])
   @@index([organizationId, clientId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Project_name_trgm")
+  @@index([projectNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Project_projectNumber_trgm")
 }
 
 model Client {
@@ -264,6 +350,9 @@ model Client {
   @@unique([organizationId, clientNumber])
   @@index([organizationId, status, name])
   @@index([createdByUserId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Client_name_trgm")
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Client_displayName_trgm")
+  @@index([clientNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Client_clientNumber_trgm")
 }
 
 model ClientContact {
@@ -292,6 +381,9 @@ model ClientContact {
 
   @@index([organizationId, clientId, active])
   @@index([organizationId, lastName, firstName])
+  @@index([firstName(ops: raw("gin_trgm_ops"))], type: Gin, map: "ClientContact_firstName_trgm")
+  @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "ClientContact_lastName_trgm")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "ClientContact_email_trgm")
 }
 
 model ClientActivity {
@@ -419,6 +511,7 @@ model Task {
   @@index([projectId, status])
   @@index([milestoneId])
   @@index([parentTaskId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Task_title_trgm")
 }
 
 model TaskChecklistItem {
@@ -486,6 +579,7 @@ model QualificationType {
 
   @@unique([organizationId, name])
   @@index([organizationId, active])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "QualificationType_name_trgm")
 }
 
 model EmployeeQualification {
@@ -614,6 +708,7 @@ model User {
   savedReportFilters        SavedReportFilter[]
   createdTrainingSessions   TrainingSession[]        @relation("TrainingSessionCreator")
   createdMaintenance        MaintenanceRecord[]      @relation("MaintenanceCreator")
+  importJobs                ImportJob[]
 
   @@unique([organizationId, email])
   @@index([organizationId, active])
@@ -701,6 +796,9 @@ model Equipment {
   @@index([organizationId, status, active, rentable])
   @@index([organizationId, categoryId])
   @@index([organizationId, locationId])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Equipment_name_trgm")
+  @@index([assetNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Equipment_assetNumber_trgm")
+  @@index([serialNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Equipment_serialNumber_trgm")
 }
 
 model Rental {
@@ -719,6 +817,7 @@ model Rental {
   checkedOutByEmployeeId String?
   receivedByEmployeeId   String?
   customerReference      String?
+  terms                  String?
   pickupNotes            String?
   returnNotes            String?
   internalNotes          String?
@@ -744,6 +843,7 @@ model Rental {
   @@index([organizationId, status, reservationStart, reservationEnd])
   @@index([organizationId, clientId])
   @@index([organizationId, projectId])
+  @@index([rentalNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Rental_rentalNumber_trgm")
 }
 
 model RentalItem {
@@ -913,6 +1013,7 @@ model Document {
   @@index([organizationId, status, updatedAt])
   @@index([organizationId, categoryId])
   @@index([organizationId, title])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Document_title_trgm")
 }
 
 model DocumentVersion {
@@ -937,6 +1038,7 @@ model DocumentVersion {
   @@unique([documentId, versionNumber])
   @@unique([organizationId, storageKey])
   @@index([organizationId, documentId])
+  @@index([originalFilename(ops: raw("gin_trgm_ops"))], type: Gin, map: "DocumentVersion_originalFilename_trgm")
 }
 
 /// Explicit nullable foreign keys keep attachment targets type-safe and auditable.
@@ -1231,6 +1333,7 @@ model Invoice {
   @@index([organizationId, clientId])
   @@index([organizationId, projectId])
   @@index([organizationId, rentalId])
+  @@index([invoiceNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Invoice_invoiceNumber_trgm")
 }
 
 model InvoiceLineItem {
@@ -1599,6 +1702,7 @@ enum NotificationCategory {
   DOCUMENTS
   TRAINING
   MAINTENANCE
+  SYSTEM
 }
 
 enum NotificationType {
@@ -1625,6 +1729,7 @@ enum NotificationType {
   MAINTENANCE_OVERDUE
   MAINTENANCE_COMPLETED
   EQUIPMENT_UNAVAILABLE
+  IMPORT_COMPLETED
 }
 
 enum NotificationEntityType {
@@ -1870,6 +1975,7 @@ model TrainingCourse {
   @@unique([organizationId, name])
   @@unique([organizationId, code])
   @@index([organizationId, active])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "TrainingCourse_name_trgm")
 }
 
 model TrainingCourseQualification {
@@ -2048,6 +2154,7 @@ model MaintenanceRecord {
   @@index([organizationId, equipmentId, openedAt])
   @@index([organizationId, completedAt])
   @@index([organizationId, type])
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin, map: "MaintenanceRecord_description_trgm")
 }
 
 /// A recurring service expectation for one asset, by date interval, meter interval, or both.

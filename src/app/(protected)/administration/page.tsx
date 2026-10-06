@@ -31,9 +31,14 @@ export default function AdministrationPage() {
           title="Audit log"
         />
         <AdminCard
-          description="Set the organization time zone, due-soon windows for tasks, rentals and invoices, and notification archiving."
-          href="/administration/reminders"
-          title="Calendar and reminders"
+          description="Organization identity and logo, numbering, due-soon thresholds, defaults, notification defaults and feature availability."
+          href="/administration/settings"
+          title="Settings"
+        />
+        <AdminCard
+          description="Import employees, clients, equipment, projects and more from CSV with a dry run, or export data."
+          href="/administration/import-export"
+          title="Import / export"
         />
         <AdminCard
           description="Define qualification types, expiration rules, and organization warning settings."
