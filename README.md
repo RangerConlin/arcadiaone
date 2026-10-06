@@ -593,3 +593,58 @@ The calendar/notification migration (`20261002070000_calendar_notifications`) is
 ## Migration notes (training and maintenance)
 
 `20261004000000_training_maintenance` is additive: new tables and enums, defaulted organization settings, new notification categories and types, new document relation targets (the "exactly one target" check is extended to include them), equipment `meterUnit`, a nullable unique `LedgerTransaction.maintenanceRecordId`, and non-negative checks on hours and cost. Existing data is untouched. Apply with `npm run db:migrate`. Policy defaults are conservative: managers cannot verify training, training cannot grant verified qualifications, maintenance costs are not posted to the ledger automatically.
+
+## Settings
+
+**Administration → Settings** (`/administration/settings`, ADMIN only; every save re-checks the role on the server) holds organization-wide configuration. It is structured: typed columns on `Organization`, a small `NumberSequence` table, validated with zod — not a JSON blob. Each tab is audited with a field-level before/after diff (`settings.*.changed`); nothing secret lives here, so nothing secret can be logged.
+
+| Tab | What it controls |
+| --- | --- |
+| Organization | Display name, legal name, address, main phone, general email, website, **time zone**, **default currency**, and the **logo**. |
+| Numbering | Prefix and next number for projects, clients, rentals, equipment asset numbers, invoices and ledger transactions. |
+| Thresholds | Qualification expiring-soon, task due-soon, rental return reminder, invoice due-soon and maintenance due-soon windows. |
+| Defaults | Auto-verify qualifications entered by an administrator (off by default); default rental terms (pre-filled on new rentals); invoice default payment terms, default due-date days, terms and conditions, footer. |
+| Notifications | Which in-app categories are on by default for people who have not chosen their own (a personal preference always wins) and the archive window. |
+| Features | Lightweight switches for navigation/UI: Rentals, Ledger, Training, Maintenance, Client portal links. |
+
+How it is used:
+
+- **Thresholds** are read by dashboards, the calendar and the reminder worker exactly as before (the old *Calendar and reminders* and qualification-threshold forms were folded in here; `/administration/reminders` redirects). Training and maintenance *permission* policy remains under *Training and maintenance settings*.
+- **Numbering.** Numbers are `prefix + zero-padded sequence`. Projects, clients, rentals and equipment use one atomic `INSERT … ON CONFLICT DO UPDATE … RETURNING` per number (`allocateNumber`), so concurrent requests, even from several processes, never receive the same value; a number typed by hand is skipped, never reused. Rentals are always numbered (default `R-0001`; existing numbers are untouched). For projects, clients and equipment a blank number is generated only when *auto-assign when blank* is on (default off, preserving the current behavior). Invoice numbers are assigned when an invoice is issued and ledger numbers when a transaction is created, both atomically on the organization row; because issued numbers are unique, those two counters can only move **forward**. Employee numbers are not generated.
+- **Feature flags** only hide navigation entry points. They never delete or hide data: reports, search, exports and direct links still work. There is no licensing system.
+- **Branding.** The organization name and logo appear in the header; the invoice PDF header uses the display name, legal name, address, phone, email and website, and the footer text. The logo (PNG/JPEG/WebP, ≤ 1 MB, content-sniffed) is stored in the same object storage as Documents (`DOCUMENT_STORAGE_PATH`) and served only to signed-in users of that organization from `/branding/logo`. There is no theme designer.
+- Everyone else reads these values indirectly (header, forms, PDFs, reminders); no settings API is exposed.
+
+## Global search
+
+A search box in the header (**Ctrl/⌘ + K** focuses it) shows up to three grouped results per record type with secondary context (debounced, no result is fetched until two characters are typed). **Enter** opens `/search?q=…`, which groups results with exact totals, filters by record type and paginates (20 per page).
+
+Searched: employees, qualifications (credentials), projects, tasks, clients, client contacts, equipment, rentals, documents, invoices, training courses and maintenance records. Not searched: audit data, calendar events, training records, ledger, and document *contents* (documents match on title, description, category and current file name only).
+
+Authorization is part of the SQL, not a filter afterwards. Every record type reuses its owning module's visibility predicate (`projectVisibilityWhere`, `taskVisibilityWhere`, `clientVisibilityWhere`, `invoiceVisibilityWhere`, `documentVisibilityWhere`, and the employee, qualification and training-course rules) combined with `AND` into one query, so a row the viewer cannot open directly is never read, counted, ranked or returned — including through an exact human-readable number. Employees only find themselves; employees get no invoice results; inactive training courses are hidden from employees; every query is also scoped to the viewer's organization. Nothing is fetched wholesale and filtered in the browser.
+
+Behavior: case-insensitive partial matching, every word must match (in any searched column), exact matches on numbers/names (employee, project, client, asset, rental and invoice numbers, serial numbers, emails) are listed first, and `%`/`_` typed by the user are literal. PostgreSQL only — the migration enables `pg_trgm` and adds GIN trigram indexes on the searched text columns, so `ILIKE '%term%'` stays index-assisted (verified with 20,000 employees). The migration therefore needs a role that may `CREATE EXTENSION pg_trgm` (the bundled Postgres image's superuser can).
+
+## Import / export
+
+**Administration → Import / export** (`/administration/import-export`, ADMIN only).
+
+**Import** supports CSV (UTF-8, comma/semicolon/tab, quoted fields, BOM; up to 5 MB and 20,000 rows). Excel files are refused with a hint to save as CSV. Importable: employees, departments, positions, qualification types, employee qualifications, clients, client contacts, equipment and projects. Each type has a downloadable template (headers plus one fictional example row) and on-screen guidance.
+
+Workflow: **upload → map columns → dry run → confirm → results.** Nothing is saved on upload. Columns are auto-matched by name and common aliases (`First Name`, `Employee ID`, `Employee #`, `Email`, `Job Title`, …) and can be changed by hand. The dry run applies every rule and shows counts (rows, valid, with warnings, rejected, to create, to update) and each problem with its line number, **and performs no writes**. Confirming re-validates against the database as it is at that moment.
+
+Validation never silently drops anything: required fields, malformed dates (`YYYY-MM-DD` or `M/D/YYYY`, real calendar dates only), enum values, emails, amounts, unknown departments / positions / categories / locations / clients / managers / qualification types, duplicates (against the database and within the file), and cross-organization references are reported as errors, and other questionable data (duplicate client names, inactive reference data, ignored expiration dates) as warnings. Rejected rows are skipped; valid rows still import. Reference data is looked up inside the importing user's organization only, and `organizationId` (or any unmapped column) in a file is ignored.
+
+Modes: **create new only** (default; matching existing records are rejected as duplicates) and, only where the match is unambiguous, **create and update**: employees (employee number, or a work email matching exactly one employee), equipment (asset number) and clients (client number). Updates change only the cells you provide — a blank cell never clears a value — and names are never used for matching. Duplicate detection: employees by employee number and work email, equipment by asset number, clients by client number (plus a duplicate-name warning), projects by project number, contacts by email within a client.
+
+Execution: small imports (≤ 500 valid rows) run in one all-or-nothing transaction. Larger ones run in chunks of 200 in the background (started immediately by the web process; the worker also sweeps queued jobs and fails jobs interrupted by a restart), a failing chunk is retried row by row, progress is shown on the job page, and the person who started it gets an in-app notification. Employee qualifications are created *unverified*; employees are created without user accounts; projects are created without members.
+
+History: every run is an `ImportJob` (entity, filename, uploader, mode, status, processed/created/updated/rejected counts, capped list of rejected rows). The uploaded rows are staged in the job only until it finishes and are then cleared (abandoned uploads expire after 24 hours); the original file is never stored. Each import writes one audit event (`import.completed` / `import.failed`: who, entity, mode, counts) — not one per row.
+
+**Export** is CSV (and XLSX) from the existing curated reports, so each follows that report's access rule, row-level scope, filters and row cap: employee directory, qualification status, project summary, open tasks, client directory, equipment inventory, rental activity, invoice register (all invoices, filter by status/date), ledger activity, training history and maintenance history. The hub lists only what the signed-in user may run and appears under both *Import / export* and *Reports*. There is no generic export-everything endpoint; password hashes, tokens, provider secrets and personal contact details are not in any export. Every export is audited (`export.generated`: report, format, row count, filters — never contents).
+
+**CSV formula injection.** Exports prefix any text cell beginning with `=`, `+`, `-`, `@`, tab or carriage return with `'` (`csvSafe`), leaving genuine numeric columns alone, and quote cells containing commas, quotes or line breaks. Imported text is stored as typed and neutralised on the way out, so a value like `=HYPERLINK(...)` is harmless in any export.
+
+## Migration notes (settings, search, import/export)
+
+`20261005000000_settings_search_import` is additive and does not touch existing rows: new nullable or defaulted `Organization` columns (identity, `ledgerPrefix`, notification defaults, feature flags, default rental terms and invoice due days/terms, `qualificationAutoVerifyAdminEntries`, logo reference), `Rental.terms`, the `NumberSequence` and `ImportJob` tables, the new `SYSTEM` notification category and `IMPORT_COMPLETED` type, the `pg_trgm` extension and trigram indexes. Existing behavior is preserved by the defaults (all features on, ledger prefix `LT-`, auto-assign off, admin-entered qualifications still unverified). Apply with `npm run db:migrate`.
