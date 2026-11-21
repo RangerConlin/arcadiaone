@@ -74,6 +74,9 @@ export const AUDIT_ACTIONS = {
   equipmentPlacedOutOfService: "equipment.unavailable",
   equipmentReturnedToService: "equipment.returned_to_service",
   maintenanceSettingsChanged: "maintenance.settings.changed",
+  apiKeyCreated: "api_key.created",
+  apiKeyRevoked: "api_key.revoked",
+  projectInquiryReceived: "project.inquiry.received",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -81,7 +84,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 export const AUDIT_ENTITY_TYPES = [
   "User", "Employee", "EmployeeQualification", "Project", "Task", "Client", "Equipment", "Rental", "Document",
   "SignatureRequest", "Invoice", "Payment", "LedgerTransaction", "ClientPortalUser", "ClientApprovalRequest",
-  "TrainingCourse", "TrainingSession", "EmployeeTrainingRecord", "MaintenanceRecord", "MaintenanceSchedule", "Organization",
+  "TrainingCourse", "TrainingSession", "EmployeeTrainingRecord", "MaintenanceRecord", "MaintenanceSchedule", "Organization", "ApiKey",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 

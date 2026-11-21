@@ -6,7 +6,7 @@ ArcadiaOne is an employee-management and project-management web application.
 
 This repository contains the production-oriented ArcadiaOne application foundation. The People module supports employee directory, employee profile, employee create/edit, department administration, position administration, qualification management, role-based user administration, project management, and straightforward task/work management.
 
-The following areas are intentionally not implemented yet: training/LMS, shift scheduling, timekeeping, payroll, SSO/MFA, advanced permissions, external integrations (including external calendar sync, email and SMS delivery), and reporting engine features.
+The following areas are intentionally not implemented yet: shift scheduling, timekeeping, payroll, SSO/MFA, and advanced permissions. External integrations are limited to the authenticated external project inquiry API (see below); external calendar sync and email/SMS delivery are not implemented.
 
 ## Technology
 
@@ -39,6 +39,7 @@ The database currently includes:
 - `User`, with organization role and optional employee identity
 - `Project`, `ProjectRole`, `ProjectMember`, `ProjectMilestone`, and `ProjectActivity`
 - `Task`, `TaskChecklistItem`, `TaskComment`, and `TaskActivity`
+- `ApiKey` and `ProjectInquirySubmission` (external integration credentials and inquiry deduplication)
 
 Employees belong to an organization, may belong to a department and position, and may optionally reference another employee as their supervisor. Employee numbers are unique within an organization when provided.
 
@@ -593,3 +594,102 @@ The calendar/notification migration (`20261002070000_calendar_notifications`) is
 ## Migration notes (training and maintenance)
 
 `20261004000000_training_maintenance` is additive: new tables and enums, defaulted organization settings, new notification categories and types, new document relation targets (the "exactly one target" check is extended to include them), equipment `meterUnit`, a nullable unique `LedgerTransaction.maintenanceRecordId`, and non-negative checks on hours and cost. Existing data is untouched. Apply with `npm run db:migrate`. Policy defaults are conservative: managers cannot verify training, training cannot grant verified qualifications, maintenance costs are not posted to the ledger automatically.
+
+## External Project Inquiry API
+
+`POST /api/v1/projects/inquiries` lets an authenticated external integration create a project the same way a staff member would, pre-populated at the `INQUIRY` lifecycle stage. The first consumer is the Arcadia Command Solutions (ACS) website contact form; the endpoint is written to support other integrations later. There is no separate leads/CRM system: an inquiry is an ordinary `Project`, visible and editable in `/projects` like any other.
+
+### Project lifecycle
+
+`Project.status` is: `INQUIRY` → `PLANNING` → `PROPOSED` → `APPROVED` → `ACTIVE` → `COMPLETED` / `ON_HOLD` / `CANCELLED` (`ARCHIVED` remains for records retired from the active list). `INQUIRY` is available in the project list filters, the create/edit form, and project detail pages exactly like the pre-existing statuses.
+
+### Authentication
+
+Integrations authenticate with a per-integration API key, sent as a bearer token:
+
+```
+Authorization: Bearer <api-key>
+```
+
+Keys are organization- and permission-scoped (`ApiKey` table). Only an HMAC-SHA256 hash of each key is stored (`AUTH_SECRET`, the same secret already used for session tokens); the plaintext is shown once, at creation. A key carries:
+
+- the organization it may create projects in (never taken from the request body),
+- the permissions it holds (initially just `PROJECT_INQUIRIES_CREATE`),
+- a `defaultSource` label recorded on every project the key creates (e.g. `acs-website`),
+- an optional `revokedAt`; a revoked key is rejected immediately.
+
+Session cookies and client-portal sessions are not accepted here, and this endpoint never trusts an organization id supplied in the request.
+
+### Provisioning and revoking keys
+
+There is no admin UI yet; use the CLI (run where `DATABASE_URL` points at the target database):
+
+```bash
+npm run api-keys -- create --name "ACS Website" --source acs-website
+```
+
+This prints the key's database id and the **plaintext key once** — store it in the integration's secrets manager; ArcadiaOne cannot show it again.
+
+```bash
+npm run api-keys -- list
+npm run api-keys -- revoke --id <apiKeyId>
+```
+
+`revoke` is immediate and permanent for that key; issue a new one if the integration needs to continue.
+
+### Request
+
+```bash
+curl -X POST https://your-arcadiaone-host/api/v1/projects/inquiries \
+  -H "Authorization: Bearer ao_live_REPLACE_WITH_REAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "phone": "555-0100",
+    "organization": "Example Events LLC",
+    "subject": "Event Communications Support",
+    "service": "Field Communications",
+    "message": "We are interested in communications support for an upcoming event.",
+    "source": "acs-website",
+    "submissionId": "acs-form-unique-id-123"
+  }'
+```
+
+Required: `name`, `email` (validated), `message`. Optional: `phone`, `organization`, `subject`, `service`, `source`, `submissionId`. `subject` becomes the project title; without one the title falls back to "Website inquiry from `<name>`". The submitted `organization` (the inquirer's company, not an ArcadiaOne organization) is stored as the project's client name — no `Client` record is created automatically. The full submission (sender name, email, phone, organization, service, message) is preserved verbatim as the project's first activity-history entry; the recorded source is the key's own `defaultSource`, not whatever the caller sends.
+
+### Response
+
+```json
+{
+  "success": true,
+  "project": { "id": "generated-project-id", "status": "INQUIRY" },
+  "duplicate": false
+}
+```
+
+| Status | Meaning |
+| --- | --- |
+| `201` | Project created. |
+| `200` | `submissionId` matched a prior, identical submission from the same key; the existing project is returned (`duplicate: true`). |
+| `400` | Payload failed validation (missing/invalid fields, bad email). |
+| `401` | Missing, unrecognized, or revoked API key. |
+| `403` | The key lacks `PROJECT_INQUIRIES_CREATE`. |
+| `409` | `submissionId` was reused with materially different content. |
+| `413` | Request body exceeds the size limit (16 KB). |
+| `429` | Too many requests from this key (20 per 15 minutes). |
+| `500` | Unexpected server error. |
+
+Error responses are `{ "success": false, "error": "..." }` and never include database or authentication internals.
+
+### Duplicate submission handling
+
+An optional `submissionId` makes retries idempotent per API key: `ProjectInquirySubmission` enforces a database-level unique constraint on `(apiKeyId, submissionId)`, so two concurrent requests for the same id can create at most one project — the loser's insert fails the unique constraint and the request returns the winner's project instead of erroring. If the same `submissionId` arrives again with different field values, the request is rejected with `409` rather than silently accepted or silently ignored.
+
+### Rate limiting and deployment
+
+The endpoint uses the same in-process rate limiter already used for the client portal (`src/lib/portal/rate-limit.ts`) — in-memory, keyed per API key, no Redis or extra infrastructure. This fits the current single-VPS Docker Compose deployment; it resets on restart and does not share state across multiple app instances, which is acceptable for this traffic volume but worth revisiting if ArcadiaOne is ever scaled horizontally.
+
+### Deployment and migration
+
+Apply the new migration like any other: `npm run db:migrate` (adds the `INQUIRY`, `PROPOSED`, `APPROVED` project statuses and the `ApiKey` / `ProjectInquirySubmission` tables; fully additive, no existing data is touched). No new environment variables are required — the endpoint reuses `AUTH_SECRET`, which must already be set. Provision at least one API key with `npm run api-keys -- create ...` after migrating before the website form (built separately) can submit inquiries.

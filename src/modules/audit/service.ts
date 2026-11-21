@@ -25,6 +25,7 @@ export type AuditInput = {
 /** Maps an authenticated internal user to an audit actor. Portal users must use `portalActor`. */
 export const userActor = (user: { id: string; email: string }): AuditActor => ({ userId: user.id, label: user.email });
 export const portalActor = (portalUser: { id: string; email: string }): AuditActor => ({ portalUserId: portalUser.id, label: `${portalUser.email} (portal)` });
+export const apiKeyActor = (apiKey: { name: string }): AuditActor => ({ label: `${apiKey.name} (API key)` });
 
 async function requestMeta() {
   try {
